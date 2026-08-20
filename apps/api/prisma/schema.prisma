@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgType {
+  school
+  clinic
+  generic
+}
+
+enum UserRole {
+  super_admin
+  owner
+  staff
+}
+
+enum ContactStatus {
+  active
+  inactive
+}
+
+enum InstanceStatus {
+  not_provisioned
+  provisioned
+  connecting
+  connected
+  disconnected
+  error
+}
+
+enum CampaignStatus {
+  draft
+  queued
+  running
+  paused
+  completed
+  cancelled
+  failed
+}
+
+enum MessageJobStatus {
+  queued
+  sending
+  sent
+  delivered
+  read
+  failed
+  cancelled
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  type        OrgType  @default(generic)
+  /// Default dialling code used to normalize local-form phone numbers.
+  countryCode String   @default("20") @map("country_code")
+  isActive    Boolean  @default(true) @map("is_active")
+  /// Per-org overrides: rate caps, business hours, etc. Falls back to env defaults.
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  groups    Group[]
+  contacts  Contact[]
+  templates MessageTemplate[]
+  campaigns Campaign[]
+  instance  WhatsAppInstance?
+  auditLogs AuditLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  organizationId String?   @map("organization_id")
+  email          String    @unique
+  passwordHash   String    @map("password_hash")
+  name           String?
+  role           UserRole  @default(staff)
+  isActive       Boolean   @default(true) @map("is_active")
+  lastLoginAt    DateTime? @map("last_login_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+  auditLogs    AuditLog[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model Group {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  description    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("groups")
+}
+
+model Contact {
+  id             String        @id @default(cuid())
+  organizationId String        @map("organization_id")
+  groupId        String?       @map("group_id")
+  fullName       String        @map("full_name")
+  /// Contact's own number, digits only with country code. Optional: for schools the
+  /// message target is usually the guardian_phone custom field.
+  phone          String?
+  status         ContactStatus @default(active)
+  /// Consent captured offline at registration; kept for audit.
+  consentConfirmed Boolean     @default(true) @map("consent_confirmed")
+  /// Org-type specific data: gender, guardian_phone, ... See @sendwhats/shared orgTypes.
+  customFields   Json          @default("{}") @map("custom_fields")
+  /// Optional stable id from the organization's own system, for idempotent imports.
+  externalId     String?       @map("external_id")
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  messageJobs  MessageJob[]
+
+  @@unique([organizationId, externalId])
+  @@index([organizationId])
+  @@index([groupId])
+  @@index([organizationId, phone])
+  @@map("contacts")
+}
+
+model WhatsAppInstance {
+  id                    String         @id @default(cuid())
+  organizationId        String         @unique @map("organization_id")
+  evolutionInstanceName String         @unique @map("evolution_instance_name")
+  /// Instance-scoped Evolution API key returned at creation, if any.
+  apiKey                String?        @map("api_key")
+  status                InstanceStatus @default(not_provisioned)
+  phoneNumber           String?        @map("phone_number")
+  lastConnectedAt       DateTime?      @map("last_connected_at")
+  lastError             String?        @map("last_error")
+  /// Rate caps for this instance; null falls back to org settings, then env defaults.
+  maxPerMinute          Int?           @map("max_per_minute")
+  maxPerDay             Int?           @map("max_per_day")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_instances")
+}
+
+model MessageTemplate {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  body           String
+  /// 'contact' (Contact.phone) or a custom field key such as 'guardian_phone'.
+  mergeTarget    String   @default("contact") @map("merge_target")
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("message_templates")
+}
+
+model Campaign {
+  id              String         @id @default(cuid())
+  organizationId  String         @map("organization_id")
+  name            String?
+  messageText     String         @map("message_text")
+  templateId      String?        @map("template_id")
+  /// [{ type: 'image' | 'document', url, fileName, mimeType }]
+  attachments     Json           @default("[]")
+  /// Resolved TargetFilter (see @sendwhats/shared types).
+  targetFilter    Json           @default("{}") @map("target_filter")
+  status          CampaignStatus @default(draft)
+  createdById     String?        @map("created_by_id")
+  totalRecipients Int            @default(0) @map("total_recipients")
+  sentCount       Int            @default(0) @map("sent_count")
+  failedCount     Int            @default(0) @map("failed_count")
+  deliveredCount  Int            @default(0) @map("delivered_count")
+  scheduledAt     DateTime?      @map("scheduled_at")
+  startedAt       DateTime?      @map("started_at")
+  completedAt     DateTime?      @map("completed_at")
+  lastError       String?        @map("last_error")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdBy    User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  jobs         MessageJob[]
+
+  @@index([organizationId, status])
+  @@map("campaigns")
+}
+
+model MessageJob {
+  id                String           @id @default(cuid())
+  campaignId        String           @map("campaign_id")
+  contactId         String?          @map("contact_id")
+  /// Resolved destination number (digits only) at enqueue time.
+  phone             String
+  renderedText      String           @map("rendered_text")
+  status            MessageJobStatus @default(queued)
+  attempts          Int              @default(0)
+  providerMessageId String?          @map("provider_message_id")
+  queuedAt          DateTime         @default(now()) @map("queued_at")
+  sentAt            DateTime?        @map("sent_at")
+  deliveredAt       DateTime?        @map("delivered_at")
+  error             String?
+  rawResponse       Json?            @map("raw_response")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, status])
+  @@index([providerMessageId])
+  @@map("message_jobs")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?  @map("organization_id")
+  userId         String?  @map("user_id")
+  action         String
+  entityType     String?  @map("entity_type")
+  entityId       String?  @map("entity_id")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}

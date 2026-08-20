@@ -1,0 +1,31 @@
+{
+  "name": "sendwhats",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Multi-tenant WhatsApp broadcast platform",
+  "workspaces": [
+    "packages/*",
+    "apps/api",
+    "apps/worker",
+    "apps/admin-web"
+  ],
+  "scripts": {
+    "build": "npm run build -w @sendwhats/shared && npm run build -w @sendwhats/api && npm run build -w @sendwhats/worker",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "npm run dev -w @sendwhats/api",
+    "dev:worker": "npm run dev -w @sendwhats/worker",
+    "dev:web": "npm run dev -w @sendwhats/admin-web",
+    "prisma:generate": "npm run prisma:generate -w @sendwhats/api",
+    "prisma:migrate": "npm run prisma:migrate -w @sendwhats/api",
+    "seed": "npm run seed -w @sendwhats/api"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^8.57.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": { "node": ">=20" }
+}
