@@ -10,7 +10,7 @@
     "apps/admin-web"
   ],
   "scripts": {
-    "build": "npm run build -w @sendwhats/shared && npm run build -w @sendwhats/api && npm run build -w @sendwhats/worker",
+    "build": "npm run build -w @sendwhats/shared && npm run build -w @sendwhats/core && npm run build -w @sendwhats/api && npm run build -w @sendwhats/worker",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run dev -w @sendwhats/api",
@@ -27,5 +27,7 @@
     "prettier": "^3.4.2",
     "typescript": "^5.7.2"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

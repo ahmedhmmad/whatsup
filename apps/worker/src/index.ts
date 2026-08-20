@@ -1,27 +1,85 @@
 import 'dotenv/config';
-import pino from 'pino';
-
-const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
+import { DelayedError, Worker, type Job } from 'bullmq';
+import {
+  SEND_QUEUE,
+  env,
+  getRedis,
+  logger,
+  prisma,
+  processMessageJob,
+  type SendJobData,
+} from '@sendwhats/core';
 
 /**
- * Phase 0 placeholder.
+ * The send worker.
  *
- * Phase 5 turns this into the BullMQ consumer for the send queue: one worker per
- * WhatsApp instance, jittered delays, per-instance rate caps, batch cooldowns and
- * backoff on Evolution API errors. It stays a separate process from the API so a
- * slow or paused campaign can never block HTTP requests.
+ * Pacing is decided per WhatsApp number rather than per process: a job that arrives
+ * while its number is inside a jitter gap, over a rate cap or outside the sending
+ * window is pushed back onto the delayed set instead of being sent or failed. That
+ * keeps concurrency useful across organizations while each number still trickles.
  */
-async function main() {
-  logger.info('Worker started (no queues registered yet — Phase 5)');
-  const heartbeat = setInterval(() => logger.debug('worker heartbeat'), 60_000);
+async function handle(job: Job<SendJobData>, token?: string): Promise<string> {
+  const outcome = await processMessageJob(job.data);
 
-  const shutdown = (signal: string) => {
-    logger.info(`${signal} received, shutting down worker`);
-    clearInterval(heartbeat);
+  switch (outcome.action) {
+    case 'sent':
+      logger.info(
+        { messageJobId: job.data.messageJobId, nextDelayMs: outcome.nextDelayMs },
+        'Message sent',
+      );
+      return 'sent';
+
+    case 'wait':
+    case 'retry': {
+      const runAt = Date.now() + Math.max(1000, outcome.retryInMs);
+      logger.info(
+        { messageJobId: job.data.messageJobId, reason: outcome.reason, retryInMs: outcome.retryInMs },
+        outcome.action === 'wait' ? 'Holding message' : 'Retrying message',
+      );
+      // moveToDelayed + DelayedError is BullMQ's way of saying "not now, not failed".
+      await job.moveToDelayed(runAt, token);
+      throw new DelayedError();
+    }
+
+    case 'failed':
+      logger.warn({ messageJobId: job.data.messageJobId, reason: outcome.reason }, 'Message failed');
+      return 'failed';
+
+    case 'skipped':
+    default:
+      logger.info({ messageJobId: job.data.messageJobId, reason: outcome.reason }, 'Message skipped');
+      return 'skipped';
+  }
+}
+
+async function main() {
+  const worker = new Worker<SendJobData>(SEND_QUEUE, handle, {
+    connection: getRedis(),
+    concurrency: env.WORKER_CONCURRENCY,
+    // Jobs are paced individually; this only stops a thundering herd on startup.
+    limiter: { max: 30, duration: 1000 },
+  });
+
+  worker.on('failed', (job, err) => {
+    if (err instanceof DelayedError) return;
+    logger.error({ err, messageJobId: job?.data?.messageJobId }, 'Send job errored');
+  });
+
+  worker.on('error', (err) => logger.error({ err }, 'Worker error'));
+
+  logger.info(
+    { concurrency: env.WORKER_CONCURRENCY, queue: SEND_QUEUE },
+    'Send worker started',
+  );
+
+  const shutdown = async (signal: string) => {
+    logger.info(`${signal} received, draining worker`);
+    await worker.close();
+    await prisma.$disconnect();
     process.exit(0);
   };
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 }
 
 main().catch((err) => {

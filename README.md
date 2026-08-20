@@ -17,9 +17,10 @@ only drives labels, custom fields and the default message template.
 
 ```
 apps/api          Express + TypeScript REST API (auth, tenants, groups, contacts)
-apps/worker       Queue worker process (placeholder until Phase 5)
+apps/worker       BullMQ send worker — paces every message per WhatsApp number
 apps/admin-web    Next.js admin console (org-type aware UI)
 packages/shared   Org-type schemas, phone normalization, template rendering
+packages/core     Server-side shared code: Prisma, env, Evolution client, queue, sender
 ```
 
 `packages/shared` is the single source of truth for what a vertical means — the API
@@ -104,6 +105,11 @@ deployment — they exist for local development.
 | POST             | `/api/v1/templates/render`            | Renders a template body against a real contact                  |
 | POST             | `/api/v1/uploads`                     | Attachment upload (images, PDF, Office, text)                   |
 | GET              | `/api/v1/uploads/:orgId/:fileName`    | Tenant-checked attachment download                              |
+| POST             | `/api/v1/campaigns/:id/send`          | Hands the prepared messages to the queue                        |
+| POST             | `/api/v1/campaigns/:id/pause`         | Stops sending; queued messages are kept                         |
+| POST             | `/api/v1/campaigns/:id/resume`        | Re-queues what is left                                          |
+| POST             | `/api/v1/campaigns/:id/cancel`        | Marks unsent messages cancelled                                 |
+| GET              | `/api/v1/campaigns/:id/progress`      | Small polling payload for the live dashboard                    |
 
 ### Tenant isolation
 
@@ -121,7 +127,7 @@ and group queries are built by `buildContactWhere`, which always applies
 - [x] **Phase 2** — Excel template generation, upload validation, preview/diff, commit
 - [x] **Phase 3** — Evolution API client, auto-provisioning, QR connect, reconnect/logout
 - [x] **Phase 4** — Composer, targeting, live recipient count, draft with resolved recipients
-- [ ] Phase 5 — BullMQ send queue with jitter, rate caps, backoff
+- [x] **Phase 5** — BullMQ send queue with jitter, rate caps, backoff, pause/cancel
 - [ ] Phase 6 — Delivery webhooks, daily caps, audit log surfacing, monitoring
 
 ## Bulk import
@@ -185,6 +191,39 @@ queue will read the same rows.
 - Saving a draft materializes one `MessageJob` per recipient with the resolved number
   and rendered text. Editing the message re-renders them, so the stored messages and
   the reviewed text can never disagree. **Nothing sends** — Phase 5 dispatches them.
+
+## Safe sending
+
+Sending is a queue, never a loop. Dispatch pushes the campaign's already-prepared
+`MessageJob` rows onto BullMQ; `apps/worker` consumes them and decides, per message,
+whether to send now, wait, retry or stop.
+
+Every send must pass one atomic gate (`packages/core/src/rateLimit.ts`):
+
+- a **randomized gap** between messages (6–20s by default, never a fixed interval),
+- a **per-minute** and **per-day cap** for that number, editable per instance,
+- a **batch cooldown** every N messages so a whole-organization send arrives in
+  batches rather than one long machine-paced stream,
+- an optional **business-hours window** per organization.
+
+The check and the reservation happen in a single Lua script. A plain check-then-act
+gate would let every concurrent worker read "clear" before any of them recorded a
+send — which is exactly the burst that gets a number banned.
+
+When a gate is closed the message is **rescheduled, not failed** — a paused campaign,
+a hit daily cap or a closed window holds the queue and the dashboard explains why.
+A mid-campaign disconnect pauses the campaign and names the reason instead of
+burning messages against a dead number; WhatsApp rate-limit responses back the whole
+number off. Transport errors retry with backoff up to `SEND_MAX_ATTEMPTS`; a rejected
+recipient fails immediately with Evolution's response kept for debugging.
+
+The campaign screen polls while a send is running, showing queued/sent/failed counts,
+a per-recipient log with timestamps and attempt counts, and pause/resume/cancel.
+
+Verified end to end against a mock Evolution server: a six-recipient class send
+completes unattended and paced, pause stops it mid-flight with the rest still queued,
+resume finishes them, cancel abandons them, a disconnect mid-campaign pauses with the
+reason shown, and a 2/minute cap holds the queue instead of failing it.
 
 ## Local environment note
 

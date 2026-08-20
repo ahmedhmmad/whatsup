@@ -6,6 +6,12 @@ import { asyncHandler, badRequest, notFound } from '../errors';
 import { audit } from '../lib/audit';
 import { requireAuth, requireOrg } from '../middleware/auth';
 import { getQuery, validateBody, validateQuery } from '../middleware/validate';
+import {
+  cancelCampaign,
+  dispatchCampaign,
+  pauseCampaign,
+  resumeCampaign,
+} from '../services/dispatch';
 import { audienceSummary, resolveAudience } from '../services/recipients';
 
 export const campaignsRouter = Router();
@@ -293,5 +299,112 @@ campaignsRouter.delete(
       entityId: existing.id,
     });
     res.status(204).end();
+  }),
+);
+
+// --- Phase 5: dispatch and live control -------------------------------------
+
+/** Loads a campaign and proves it belongs to the caller's organization. */
+async function requireCampaign(organizationId: string, id: string) {
+  const campaign = await prisma.campaign.findFirst({ where: { id, organizationId } });
+  if (!campaign) throw notFound('Campaign not found');
+  return campaign;
+}
+
+campaignsRouter.post(
+  '/:id/send',
+  asyncHandler(async (req, res) => {
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const result = await dispatchCampaign(req.org!, campaign);
+
+    await audit({
+      organizationId: req.org!.id,
+      userId: req.auth!.sub,
+      action: 'campaign.dispatched',
+      entityType: 'campaign',
+      entityId: campaign.id,
+      metadata: { queued: result.queued, estimatedMinutes: result.estimatedMinutes },
+    });
+
+    res.json(result);
+  }),
+);
+
+campaignsRouter.post(
+  '/:id/pause',
+  asyncHandler(async (req, res) => {
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const updated = await pauseCampaign(campaign);
+    await audit({
+      organizationId: req.org!.id,
+      userId: req.auth!.sub,
+      action: 'campaign.paused',
+      entityType: 'campaign',
+      entityId: campaign.id,
+    });
+    res.json(updated);
+  }),
+);
+
+campaignsRouter.post(
+  '/:id/resume',
+  asyncHandler(async (req, res) => {
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const result = await resumeCampaign(req.org!, campaign);
+    await audit({
+      organizationId: req.org!.id,
+      userId: req.auth!.sub,
+      action: 'campaign.resumed',
+      entityType: 'campaign',
+      entityId: campaign.id,
+    });
+    res.json(result);
+  }),
+);
+
+campaignsRouter.post(
+  '/:id/cancel',
+  asyncHandler(async (req, res) => {
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const result = await cancelCampaign(campaign);
+    await audit({
+      organizationId: req.org!.id,
+      userId: req.auth!.sub,
+      action: 'campaign.cancelled',
+      entityType: 'campaign',
+      entityId: campaign.id,
+      metadata: { cancelled: result.cancelled },
+    });
+    res.json(result);
+  }),
+);
+
+/** Small polling payload for the live dashboard — counts only, no job rows. */
+campaignsRouter.get(
+  '/:id/progress',
+  asyncHandler(async (req, res) => {
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const [grouped, instance] = await Promise.all([
+      prisma.messageJob.groupBy({
+        by: ['status'],
+        where: { campaignId: campaign.id },
+        _count: { _all: true },
+      }),
+      prisma.whatsAppInstance.findUnique({
+        where: { organizationId: req.org!.id },
+        select: { status: true, phoneNumber: true },
+      }),
+    ]);
+
+    const counts = Object.fromEntries(grouped.map((row) => [row.status, row._count._all]));
+    res.json({
+      status: campaign.status,
+      lastError: campaign.lastError,
+      totalRecipients: campaign.totalRecipients,
+      startedAt: campaign.startedAt,
+      completedAt: campaign.completedAt,
+      counts,
+      instance,
+    });
   }),
 );
