@@ -7,12 +7,15 @@ import { errorHandler, notFoundHandler } from './errors';
 import { logger } from './logger';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
+import { campaignsRouter } from './routes/campaigns';
 import { contactsRouter } from './routes/contacts';
 import { groupsRouter } from './routes/groups';
 import { healthRouter } from './routes/health';
 import { importsRouter } from './routes/imports';
 import { instanceRouter } from './routes/instance';
 import { orgRouter } from './routes/org';
+import { templatesRouter } from './routes/templates';
+import { uploadsRouter } from './routes/uploads';
 import { webhooksRouter } from './routes/webhooks';
 
 export function createApp() {
@@ -37,6 +40,9 @@ export function createApp() {
   app.use('/api/v1/contacts', contactsRouter);
   app.use('/api/v1/import', importsRouter);
   app.use('/api/v1/instance', instanceRouter);
+  app.use('/api/v1/campaigns', campaignsRouter);
+  app.use('/api/v1/templates', templatesRouter);
+  app.use('/api/v1/uploads', uploadsRouter);
   app.use('/api/v1/webhooks', webhooksRouter);
 
   app.use(notFoundHandler);

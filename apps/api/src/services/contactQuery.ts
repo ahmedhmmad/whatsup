@@ -24,9 +24,13 @@ export function buildContactWhere(
   const and: Prisma.ContactWhereInput[] = [{ organizationId }];
 
   if (!opts.includeInactive) and.push({ status: 'active' });
+  // An explicit list is honoured even when empty: "these groups" or "these contacts"
+  // with nothing chosen means nobody, never everybody. Only `undefined` means
+  // "no constraint" — the difference decides whether a send reaches one class or
+  // the whole organization.
   if (opts.ungroupedOnly) and.push({ groupId: null });
-  else if (opts.groupIds?.length) and.push({ groupId: { in: opts.groupIds } });
-  if (opts.contactIds?.length) and.push({ id: { in: opts.contactIds } });
+  else if (opts.groupIds) and.push({ groupId: { in: opts.groupIds } });
+  if (opts.contactIds) and.push({ id: { in: opts.contactIds } });
 
   if (opts.search?.trim()) {
     const search = opts.search.trim();

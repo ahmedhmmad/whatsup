@@ -96,6 +96,14 @@ deployment — they exist for local development.
 | GET              | `/api/v1/admin/organizations/:id/instance/status`    | Super admin                                       |
 | DELETE           | `/api/v1/admin/organizations/:id/instance`           | Deletes the instance on the Evolution server      |
 | POST             | `/api/v1/webhooks/evolution/:instanceName`           | Evolution posts connection events here            |
+| POST             | `/api/v1/campaigns/preview`           | Live recipient count + personalized preview                     |
+| GET/POST         | `/api/v1/campaigns`                   | List / create a draft with its recipients resolved              |
+| GET/PATCH/DELETE | `/api/v1/campaigns/:id`               | Detail with per-recipient rows; edits re-render prepared texts  |
+| GET/POST         | `/api/v1/templates`                   | Message templates, placeholders, valid merge targets            |
+| PATCH/DELETE     | `/api/v1/templates/:id`               |                                                                 |
+| POST             | `/api/v1/templates/render`            | Renders a template body against a real contact                  |
+| POST             | `/api/v1/uploads`                     | Attachment upload (images, PDF, Office, text)                   |
+| GET              | `/api/v1/uploads/:orgId/:fileName`    | Tenant-checked attachment download                              |
 
 ### Tenant isolation
 
@@ -112,7 +120,7 @@ and group queries are built by `buildContactWhere`, which always applies
       group/contact CRUD with org-type-aware fields *(end-to-end API smoke test still pending)*
 - [x] **Phase 2** — Excel template generation, upload validation, preview/diff, commit
 - [x] **Phase 3** — Evolution API client, auto-provisioning, QR connect, reconnect/logout
-- [ ] Phase 4 — Composer & targeting with live recipient count
+- [x] **Phase 4** — Composer, targeting, live recipient count, draft with resolved recipients
 - [ ] Phase 5 — BullMQ send queue with jitter, rate caps, backoff
 - [ ] Phase 6 — Delivery webhooks, daily caps, audit log surfacing, monitoring
 
@@ -157,6 +165,26 @@ Verified end to end against a mock Evolution server built from its v2 API docs
 outage and deleted-instance paths). **Not yet exercised against a real Evolution
 server** — that needs `EVOLUTION_API_URL` and `EVOLUTION_API_KEY` pointing at a live
 deployment.
+
+## Composing and targeting
+
+The campaign wizard runs Target → Compose → Review, with the recipient count visible
+at every step. Targeting covers the whole organization, selected groups, groups
+narrowed by a custom field (gender for schools), or hand-picked contacts with search.
+
+`resolveAudience` is the single resolver behind the live count, the preview and the
+saved draft, so the number an admin approves is the number prepared — and Phase 5's
+queue will read the same rows.
+
+- Exclusions are always reported, never silent: a contact with no destination number,
+  or without confirmed consent, is listed with the reason.
+- Schools address the guardian number; siblings who share one are both kept (each
+  message names a different student) and the overlap is reported, with an opt-in
+  dedupe if the admin would rather send once per number.
+- An explicit but empty selection resolves to nobody, never everybody.
+- Saving a draft materializes one `MessageJob` per recipient with the resolved number
+  and rendered text. Editing the message re-renders them, so the stored messages and
+  the reviewed text can never disagree. **Nothing sends** — Phase 5 dispatches them.
 
 ## Local environment note
 
