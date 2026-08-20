@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth';
 import { contactsRouter } from './routes/contacts';
 import { groupsRouter } from './routes/groups';
 import { healthRouter } from './routes/health';
+import { importsRouter } from './routes/imports';
 import { orgRouter } from './routes/org';
 
 export function createApp() {
@@ -32,6 +33,7 @@ export function createApp() {
   app.use('/api/v1/org', orgRouter);
   app.use('/api/v1/groups', groupsRouter);
   app.use('/api/v1/contacts', contactsRouter);
+  app.use('/api/v1/import', importsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

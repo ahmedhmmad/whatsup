@@ -21,6 +21,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
     { href: '/dashboard', label: 'Dashboard', show: true },
     { href: '/groups', label: labels.groupPlural, show: true },
     { href: '/contacts', label: labels.contactPlural, show: true },
+    { href: '/import', label: 'Import', show: true },
     { href: '/admin/organizations', label: 'Organizations', show: user.role === 'super_admin' },
   ].filter((item) => item.show);
 

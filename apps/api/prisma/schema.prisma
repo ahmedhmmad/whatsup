@@ -72,6 +72,7 @@ model Organization {
   campaigns Campaign[]
   instance  WhatsAppInstance?
   auditLogs AuditLog[]
+  importBatches ImportBatch[]
 
   @@map("organizations")
 }
@@ -255,4 +256,35 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@map("audit_logs")
+}
+
+enum ImportBatchStatus {
+  pending
+  committed
+  cancelled
+}
+
+/// A parsed-and-validated spreadsheet awaiting the admin's confirmation.
+/// Preview and commit work from this snapshot, so what was reviewed is exactly
+/// what gets written even if the file changes on the admin's machine.
+model ImportBatch {
+  id                  String            @id @default(cuid())
+  organizationId      String            @map("organization_id")
+  createdById         String?           @map("created_by_id")
+  fileName            String            @map("file_name")
+  /// Group applied to rows that leave the group column empty.
+  defaultGroupId      String?           @map("default_group_id")
+  createMissingGroups Boolean           @default(true) @map("create_missing_groups")
+  status              ImportBatchStatus @default(pending)
+  /// { total, create, update, skip, error, groupsToCreate: [] }
+  summary             Json              @default("{}")
+  /// Validated rows exactly as previewed.
+  rows                Json              @default("[]")
+  committedAt         DateTime?         @map("committed_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("import_batches")
 }

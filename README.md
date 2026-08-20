@@ -79,6 +79,12 @@ deployment — they exist for local development.
 | GET/POST         | `/api/v1/contacts`                    | Filters: `search`, `groupId`, `cf.<field>` (e.g. `cf.gender=female`) |
 | GET/PATCH/DELETE | `/api/v1/contacts/:id`                |                                                                 |
 | POST             | `/api/v1/contacts/bulk`               | delete / activate / deactivate / move                           |
+| GET              | `/api/v1/import/columns`              | Expected sheet columns for this org type                        |
+| GET              | `/api/v1/import/template`             | Downloads the `.xlsx` template for this org type                |
+| POST             | `/api/v1/import/preview`              | Uploads a sheet, validates it, stores a pending batch           |
+| GET              | `/api/v1/import/batches/:id`          |                                                                 |
+| POST             | `/api/v1/import/batches/:id/commit`   | Applies the previewed rows (`excludeRowNumbers` to skip some)   |
+| POST             | `/api/v1/import/batches/:id/cancel`   |                                                                 |
 
 ### Tenant isolation
 
@@ -93,11 +99,28 @@ and group queries are built by `buildContactWhere`, which always applies
 - [x] **Phase 0** — monorepo, Docker Compose (Postgres/Redis/API/worker), CI, `/health`
 - [x] **Phase 1** — Prisma schema, JWT auth + roles, tenant scoping, super-admin console,
       group/contact CRUD with org-type-aware fields *(end-to-end API smoke test still pending)*
-- [ ] Phase 2 — Excel import with validation + preview
+- [x] **Phase 2** — Excel template generation, upload validation, preview/diff, commit
 - [ ] Phase 3 — Evolution API instance provisioning + QR connect
 - [ ] Phase 4 — Composer & targeting with live recipient count
 - [ ] Phase 5 — BullMQ send queue with jitter, rate caps, backoff
 - [ ] Phase 6 — Delivery webhooks, daily caps, audit log surfacing, monitoring
+
+## Bulk import
+
+Admins download a template generated from their organization type's field schema
+(school sheets carry Guardian phone / Gender / Class; generic sheets carry name and
+phone), fill it in, and upload it. The upload is parsed and validated but **not**
+written: it becomes a pending `ImportBatch` whose rows each carry the action they
+would take — create, update, duplicate-skip, or error with per-field messages. The
+admin reviews that preview, unticks anything they don't want, and confirms.
+
+- Phone numbers are accepted in local (`01001234567`) or international
+  (`+201001234567`) form and stored normalized.
+- Rows matching an existing contact by External ID, or by name + destination number,
+  update it instead of creating a duplicate — so re-uploading a corrected sheet is safe.
+- Duplicates *within* the file are flagged against the row they repeat.
+- Classes named in the sheet that don't exist yet are created on commit (optional).
+- Columns the platform doesn't recognize are reported and ignored, not rejected.
 
 ## Local environment note
 
