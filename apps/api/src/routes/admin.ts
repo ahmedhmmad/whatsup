@@ -8,6 +8,13 @@ import { hashPassword } from '../lib/password';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { createOrganization } from '../services/organizations';
+import {
+  deprovisionInstance,
+  instanceView,
+  provisionInstance,
+  refreshInstanceStatus,
+  tryProvisionInstance,
+} from '../services/instances';
 
 export const adminRouter = Router();
 
@@ -60,19 +67,24 @@ adminRouter.post(
       owner: input.owner,
     });
 
+    // Provisioning talks to an external server; a slow or down Evolution must not
+    // fail onboarding, so the org is created either way and the admin can retry.
+    await tryProvisionInstance(org);
+    const provisioned = await prisma.whatsAppInstance.findUnique({ where: { organizationId: org.id } });
+
     await audit({
       organizationId: org.id,
       userId: req.auth!.sub,
       action: 'organization.created',
       entityType: 'organization',
       entityId: org.id,
-      metadata: { type: org.type, ownerEmail: owner.email },
+      metadata: { type: org.type, ownerEmail: owner.email, instanceStatus: provisioned?.status },
     });
 
     res.status(201).json({
       organization: org,
       owner: { id: owner.id, email: owner.email, name: owner.name, role: owner.role },
-      instance,
+      instance: instanceView(provisioned ?? instance),
     });
   }),
 );
@@ -171,5 +183,49 @@ adminRouter.post(
     });
 
     res.status(201).json(user);
+  }),
+);
+
+/** Re-runs provisioning for an organization onboarded while Evolution was unreachable. */
+adminRouter.post(
+  '/organizations/:id/instance/provision',
+  asyncHandler(async (req, res) => {
+    const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
+    if (!org) throw notFound('Organization not found');
+
+    const force = req.query.force === 'true';
+    const instance = await provisionInstance(org, { force });
+    await audit({
+      organizationId: org.id,
+      userId: req.auth!.sub,
+      action: 'instance.provisioned',
+      entityType: 'whatsapp_instance',
+      entityId: instance.id,
+      metadata: { evolutionInstanceName: instance.evolutionInstanceName, force },
+    });
+    res.json(instanceView(instance));
+  }),
+);
+
+adminRouter.get(
+  '/organizations/:id/instance/status',
+  asyncHandler(async (req, res) => {
+    res.json(instanceView(await refreshInstanceStatus(req.params.id)));
+  }),
+);
+
+/** Removes the instance from the Evolution server entirely. */
+adminRouter.delete(
+  '/organizations/:id/instance',
+  asyncHandler(async (req, res) => {
+    const instance = await deprovisionInstance(req.params.id);
+    await audit({
+      organizationId: req.params.id,
+      userId: req.auth!.sub,
+      action: 'instance.deprovisioned',
+      entityType: 'whatsapp_instance',
+      entityId: instance.id,
+    });
+    res.json(instanceView(instance));
   }),
 );

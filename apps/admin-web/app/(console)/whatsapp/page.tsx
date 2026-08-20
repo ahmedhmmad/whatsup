@@ -1,0 +1,339 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
+import { useLabels, useSession } from '@/lib/session';
+
+type InstanceStatus =
+  | 'not_provisioned'
+  | 'provisioned'
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'error';
+
+interface InstanceState {
+  id?: string;
+  status: InstanceStatus;
+  phoneNumber: string | null;
+  lastConnectedAt: string | null;
+  lastError?: string | null;
+  evolutionInstanceName?: string;
+  maxPerMinute?: number | null;
+  maxPerDay?: number | null;
+}
+
+interface ConnectPayload {
+  status: InstanceStatus;
+  qrDataUrl: string | null;
+  pairingCode: string | null;
+  phoneNumber: string | null;
+}
+
+const STATUS_LABEL: Record<InstanceStatus, string> = {
+  not_provisioned: 'Not provisioned',
+  provisioned: 'Ready to connect',
+  connecting: 'Waiting for scan',
+  connected: 'Connected',
+  disconnected: 'Disconnected',
+  error: 'Error',
+};
+
+const STATUS_TONE: Record<InstanceStatus, string> = {
+  not_provisioned: 'bg-slate-100 text-slate-600',
+  provisioned: 'bg-slate-100 text-slate-600',
+  connecting: 'bg-amber-50 text-amber-700',
+  connected: 'bg-brand-50 text-brand-700',
+  disconnected: 'bg-red-50 text-red-600',
+  error: 'bg-red-50 text-red-600',
+};
+
+const formatPhone = (digits: string | null) => (digits ? `+${digits}` : null);
+
+export default function WhatsAppPage() {
+  const { organization } = useSession();
+  const labels = useLabels();
+
+  const [instance, setInstance] = useState<InstanceState | null>(null);
+  const [qr, setQr] = useState<ConnectPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const load = useCallback(async () => {
+    const state = await api<InstanceState>('/api/v1/instance');
+    setInstance(state);
+    return state;
+  }, []);
+
+  useEffect(() => {
+    load().catch((err) => setError(err.message));
+  }, [load, organization?.id]);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimer.current) {
+      clearInterval(pollTimer.current);
+      pollTimer.current = null;
+    }
+  }, []);
+
+  /** While a QR is on screen, poll the real Evolution state until the scan lands. */
+  useEffect(() => {
+    if (!qr?.qrDataUrl) return;
+
+    pollTimer.current = setInterval(async () => {
+      try {
+        const state = await api<InstanceState>('/api/v1/instance/status');
+        setInstance(state);
+        if (state.status === 'connected') {
+          setQr(null);
+          stopPolling();
+        }
+      } catch {
+        // A failed poll is not fatal — the next tick tries again.
+      }
+    }, 3000);
+
+    return stopPolling;
+  }, [qr?.qrDataUrl, stopPolling]);
+
+  useEffect(() => stopPolling, [stopPolling]);
+
+  async function run(action: string, fn: () => Promise<void>) {
+    setBusy(action);
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const connect = () =>
+    run('connect', async () => {
+      const payload = await api<ConnectPayload>('/api/v1/instance/connect', { method: 'POST' });
+      setQr(payload);
+      await load();
+    });
+
+  const provision = () =>
+    run('provision', async () => {
+      await api('/api/v1/instance/provision', { method: 'POST' });
+      await load();
+    });
+
+  const logout = () =>
+    run('logout', async () => {
+      if (!confirm('Disconnect this WhatsApp number? Campaigns cannot send until it is reconnected.')) return;
+      await api('/api/v1/instance/logout', { method: 'POST' });
+      setQr(null);
+      await load();
+    });
+
+  const replaceNumber = () =>
+    run('replace', async () => {
+      if (!confirm('Disconnect the current number and show a QR for a new one?')) return;
+      const payload = await api<ConnectPayload>('/api/v1/instance/replace-number', { method: 'POST' });
+      setQr(payload);
+      await load();
+    });
+
+  const refresh = () =>
+    run('refresh', async () => {
+      const state = await api<InstanceState>('/api/v1/instance/status');
+      setInstance(state);
+    });
+
+  if (!instance) {
+    return <p className="text-sm text-slate-500">{error ?? 'Loading…'}</p>;
+  }
+
+  const status = instance.status;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">WhatsApp connection</h1>
+        <p className="text-sm text-slate-500">
+          Link the number this {labels.organization.toLowerCase()} sends from. Scanning is a one-time
+          step — the connection stays live until the number is logged out or replaced.
+        </p>
+      </div>
+
+      <div className="card space-y-4 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`badge ${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>
+              {instance.phoneNumber && (
+                <span className="text-sm font-medium">{formatPhone(instance.phoneNumber)}</span>
+              )}
+            </div>
+            {instance.lastConnectedAt && (
+              <p className="mt-1 text-xs text-slate-400">
+                Last connected {new Date(instance.lastConnectedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-secondary" onClick={refresh} disabled={busy !== null}>
+              {busy === 'refresh' ? 'Checking…' : 'Refresh status'}
+            </button>
+
+            {status === 'not_provisioned' && (
+              <button className="btn-primary" onClick={provision} disabled={busy !== null}>
+                {busy === 'provision' ? 'Provisioning…' : 'Provision instance'}
+              </button>
+            )}
+
+            {(status === 'provisioned' || status === 'disconnected' || status === 'error') && (
+              <button className="btn-primary" onClick={connect} disabled={busy !== null}>
+                {busy === 'connect' ? 'Requesting QR…' : 'Connect WhatsApp'}
+              </button>
+            )}
+
+            {status === 'connecting' && !qr && (
+              <button className="btn-primary" onClick={connect} disabled={busy !== null}>
+                {busy === 'connect' ? 'Requesting QR…' : 'Show QR code'}
+              </button>
+            )}
+
+            {status === 'connected' && (
+              <>
+                <button className="btn-secondary" onClick={replaceNumber} disabled={busy !== null}>
+                  {busy === 'replace' ? 'Working…' : 'Replace number'}
+                </button>
+                <button className="btn-danger" onClick={logout} disabled={busy !== null}>
+                  {busy === 'logout' ? 'Disconnecting…' : 'Log out'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {instance.lastError && status !== 'connected' && (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{instance.lastError}</p>
+        )}
+        {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+        {status === 'not_provisioned' && (
+          <p className="text-sm text-slate-500">
+            No instance exists on the messaging server for this {labels.organization.toLowerCase()} yet.
+            Provisioning creates one; if it fails, the server is unreachable or its API key is wrong.
+          </p>
+        )}
+      </div>
+
+      {qr?.qrDataUrl && (
+        <div className="card space-y-4 p-6 text-center">
+          <h2 className="font-medium">Scan with WhatsApp</h2>
+          <ol className="mx-auto max-w-md space-y-1 text-left text-sm text-slate-600">
+            <li>1. Open WhatsApp on the phone that owns the sending number.</li>
+            <li>2. Go to Settings → Linked devices → Link a device.</li>
+            <li>3. Point the camera at this code.</li>
+          </ol>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={qr.qrDataUrl}
+            alt="WhatsApp pairing QR code"
+            className="mx-auto h-64 w-64 rounded-md border border-slate-200 bg-white p-2"
+          />
+          {qr.pairingCode && (
+            <p className="text-sm text-slate-600">
+              Or enter the pairing code <span className="font-mono font-medium">{qr.pairingCode}</span>
+            </p>
+          )}
+          <p className="text-xs text-slate-400">
+            Waiting for the scan… this page updates itself. Codes expire after about a minute — press
+            “Connect WhatsApp” again for a fresh one.
+          </p>
+        </div>
+      )}
+
+      <SendLimits instance={instance} onSaved={setInstance} />
+    </div>
+  );
+}
+
+/** Per-instance send caps the Phase 5 queue will enforce. */
+function SendLimits({
+  instance,
+  onSaved,
+}: {
+  instance: InstanceState;
+  onSaved: (state: InstanceState) => void;
+}) {
+  const [perMinute, setPerMinute] = useState(String(instance.maxPerMinute ?? ''));
+  const [perDay, setPerDay] = useState(String(instance.maxPerDay ?? ''));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (instance.status === 'not_provisioned') return null;
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const state = await api<InstanceState>('/api/v1/instance/limits', {
+        method: 'PATCH',
+        body: {
+          maxPerMinute: perMinute === '' ? null : Number(perMinute),
+          maxPerDay: perDay === '' ? null : Number(perDay),
+        },
+      });
+      onSaved(state);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save limits');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="card space-y-4 p-4">
+      <div>
+        <h2 className="font-medium">Sending limits</h2>
+        <p className="text-sm text-slate-500">
+          Caps for this number. Leave empty to use the platform defaults. Lower is safer — WhatsApp
+          flags numbers that send in bursts.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-40">
+          <label className="label">Messages per minute</label>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={60}
+            value={perMinute}
+            onChange={(e) => setPerMinute(e.target.value)}
+            placeholder="default"
+          />
+        </div>
+        <div className="w-40">
+          <label className="label">Messages per day</label>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={10000}
+            value={perDay}
+            onChange={(e) => setPerDay(e.target.value)}
+            placeholder="default"
+          />
+        </div>
+        <button className="btn-secondary" disabled={busy}>
+          {busy ? 'Saving…' : 'Save limits'}
+        </button>
+      </div>
+
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+    </form>
+  );
+}

@@ -70,11 +70,9 @@ export default function DashboardPage() {
             {data.instance.status.replace(/_/g, ' ')}
           </span>
         </div>
-        <p className="mt-3 text-xs text-slate-400">
-          QR connect flow arrives in Phase 3; the instance record is already provisioned for this
-          {' '}
-          {labels.organization.toLowerCase()}.
-        </p>
+        <Link href="/whatsapp" className="mt-3 inline-block text-xs text-brand-600 hover:underline">
+          {data.instance.status === 'connected' ? 'Manage connection' : 'Connect a number'} →
+        </Link>
       </div>
 
       <div className="card p-4">

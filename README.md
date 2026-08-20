@@ -85,6 +85,17 @@ deployment — they exist for local development.
 | GET              | `/api/v1/import/batches/:id`          |                                                                 |
 | POST             | `/api/v1/import/batches/:id/commit`   | Applies the previewed rows (`excludeRowNumbers` to skip some)   |
 | POST             | `/api/v1/import/batches/:id/cancel`   |                                                                 |
+| GET              | `/api/v1/instance`                    | Stored connection state (no call to Evolution)                  |
+| GET              | `/api/v1/instance/status`             | Reconciles with Evolution, then returns state — polled by the UI |
+| POST             | `/api/v1/instance/connect`            | Returns a QR image (and pairing code) to scan                   |
+| POST             | `/api/v1/instance/logout`             | Ends the WhatsApp session, keeps the instance                   |
+| POST             | `/api/v1/instance/replace-number`     | Logout + fresh QR, for a banned or rotated number               |
+| POST             | `/api/v1/instance/provision`          | Retries provisioning if onboarding happened while Evolution was down |
+| PATCH            | `/api/v1/instance/limits`             | Per-instance messages/minute and /day caps                      |
+| POST             | `/api/v1/admin/organizations/:id/instance/provision` | Super admin, `?force=true` to recreate           |
+| GET              | `/api/v1/admin/organizations/:id/instance/status`    | Super admin                                       |
+| DELETE           | `/api/v1/admin/organizations/:id/instance`           | Deletes the instance on the Evolution server      |
+| POST             | `/api/v1/webhooks/evolution/:instanceName`           | Evolution posts connection events here            |
 
 ### Tenant isolation
 
@@ -100,7 +111,7 @@ and group queries are built by `buildContactWhere`, which always applies
 - [x] **Phase 1** — Prisma schema, JWT auth + roles, tenant scoping, super-admin console,
       group/contact CRUD with org-type-aware fields *(end-to-end API smoke test still pending)*
 - [x] **Phase 2** — Excel template generation, upload validation, preview/diff, commit
-- [ ] Phase 3 — Evolution API instance provisioning + QR connect
+- [x] **Phase 3** — Evolution API client, auto-provisioning, QR connect, reconnect/logout
 - [ ] Phase 4 — Composer & targeting with live recipient count
 - [ ] Phase 5 — BullMQ send queue with jitter, rate caps, backoff
 - [ ] Phase 6 — Delivery webhooks, daily caps, audit log surfacing, monitoring
@@ -121,6 +132,31 @@ admin reviews that preview, unticks anything they don't want, and confirms.
 - Duplicates *within* the file are flagged against the row they repeat.
 - Classes named in the sheet that don't exist yet are created on commit (optional).
 - Columns the platform doesn't recognize are reported and ignored, not rejected.
+
+## WhatsApp connection
+
+Evolution API is self-hosted by the platform operator; organizations never touch it.
+Creating an organization provisions an instance on the Evolution server and registers
+a webhook against it. The org's own admin then opens **WhatsApp**, presses Connect,
+and scans the QR — the screen polls until the pairing lands and then shows the linked
+number.
+
+- Evolution returns either a rendered QR image or a raw payload depending on version;
+  the API normalizes both to a data URI so the UI only ever handles an image.
+- `GET /api/v1/instance/status` reconciles our record against the live server, so a
+  number that drops is visible; the webhook receiver reports the same change without
+  anyone having the screen open.
+- An instance deleted on the Evolution server reports `not_provisioned` with the reason
+  rather than a stale "connected", and can be re-provisioned from the UI.
+- Provisioning never blocks onboarding: if Evolution is unreachable the organization is
+  still created, the failure is recorded, and provisioning can be retried later.
+- The instance's API key is stored server-side and never sent to the browser.
+
+Verified end to end against a mock Evolution server built from its v2 API docs
+(provision → QR → scan → connected → disconnect → logout → replace number, plus the
+outage and deleted-instance paths). **Not yet exercised against a real Evolution
+server** — that needs `EVOLUTION_API_URL` and `EVOLUTION_API_KEY` pointing at a live
+deployment.
 
 ## Local environment note
 

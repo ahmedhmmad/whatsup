@@ -11,7 +11,9 @@ import { contactsRouter } from './routes/contacts';
 import { groupsRouter } from './routes/groups';
 import { healthRouter } from './routes/health';
 import { importsRouter } from './routes/imports';
+import { instanceRouter } from './routes/instance';
 import { orgRouter } from './routes/org';
+import { webhooksRouter } from './routes/webhooks';
 
 export function createApp() {
   const app = express();
@@ -34,6 +36,8 @@ export function createApp() {
   app.use('/api/v1/groups', groupsRouter);
   app.use('/api/v1/contacts', contactsRouter);
   app.use('/api/v1/import', importsRouter);
+  app.use('/api/v1/instance', instanceRouter);
+  app.use('/api/v1/webhooks', webhooksRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
