@@ -48,7 +48,7 @@ importsRouter.get(
     });
 
     const buffer = await buildImportTemplate(org.type, groups.map((g) => g.name));
-    const fileName = `${org.name.replace(/[^\w\-]+/g, '-').toLowerCase()}-import-template.xlsx`;
+    const fileName = `${org.name.replace(/[^\w-]+/g, '-').toLowerCase()}-import-template.xlsx`;
 
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
