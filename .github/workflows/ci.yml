@@ -17,6 +17,9 @@ jobs:
       - run: npm ci
       - run: npm run build -w @sendwhats/shared
       - run: npx prisma generate --schema apps/api/prisma/schema.prisma
+      # core is a compiled dependency of the API and the worker: its .d.ts files
+      # must exist before anything typechecks against them.
+      - run: npm run build -w @sendwhats/core
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
