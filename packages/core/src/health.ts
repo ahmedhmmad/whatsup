@@ -28,7 +28,42 @@ export interface QueueHealth {
   depth: { waiting: number; delayed: number; active: number; failed: number } | null;
 }
 
+const UNAVAILABLE: QueueHealth = {
+  redis: 'unavailable',
+  worker: 'unknown',
+  workerLastSeenAt: null,
+  depth: null,
+};
+
+/** How long to wait for Redis before calling it unavailable. */
+const PROBE_TIMEOUT_MS = 2000;
+
+/**
+ * BullMQ requires `maxRetriesPerRequest: null`, which makes ioredis queue commands
+ * indefinitely while Redis is unreachable instead of rejecting them. Without this
+ * deadline a health probe hangs rather than reporting the outage — the opposite of
+ * what monitoring needs.
+ */
+function withTimeout<T>(work: Promise<T>, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), PROBE_TIMEOUT_MS);
+    work
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        resolve(fallback);
+      });
+  });
+}
+
 export async function getQueueHealth(): Promise<QueueHealth> {
+  return withTimeout(probeQueue(), UNAVAILABLE);
+}
+
+async function probeQueue(): Promise<QueueHealth> {
   try {
     const redis = getRedis();
     await redis.ping();
@@ -54,6 +89,6 @@ export async function getQueueHealth(): Promise<QueueHealth> {
       },
     };
   } catch {
-    return { redis: 'unavailable', worker: 'unknown', workerLastSeenAt: null, depth: null };
+    return UNAVAILABLE;
   }
 }
