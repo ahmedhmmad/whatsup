@@ -13,6 +13,7 @@ import { groupsRouter } from './routes/groups';
 import { healthRouter } from './routes/health';
 import { importsRouter } from './routes/imports';
 import { instanceRouter } from './routes/instance';
+import { opsRouter } from './routes/ops';
 import { orgRouter } from './routes/org';
 import { templatesRouter } from './routes/templates';
 import { uploadsRouter } from './routes/uploads';
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/v1/campaigns', campaignsRouter);
   app.use('/api/v1/templates', templatesRouter);
   app.use('/api/v1/uploads', uploadsRouter);
+  app.use('/api/v1/ops', opsRouter);
   app.use('/api/v1/webhooks', webhooksRouter);
 
   app.use(notFoundHandler);

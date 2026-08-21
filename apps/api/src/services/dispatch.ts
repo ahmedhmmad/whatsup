@@ -29,10 +29,15 @@ export async function dispatchCampaign(org: Organization, campaign: Campaign) {
   });
   if (!pending.length) throw badRequest('This campaign has no messages left to send');
 
-  const limits = resolveLimits({
-    maxPerMinute: instance.maxPerMinute ?? undefined,
-    maxPerDay: instance.maxPerDay ?? undefined,
-  });
+  // Same layering the worker uses, so the estimate an admin is shown matches the
+  // caps that will actually apply.
+  const limits = resolveLimits(
+    {
+      maxPerMinute: instance.maxPerMinute ?? undefined,
+      maxPerDay: instance.maxPerDay ?? undefined,
+    },
+    org.settings,
+  );
   const alreadySentToday = await sentToday(instance.evolutionInstanceName);
 
   const updated = await prisma.campaign.update({

@@ -5,3 +5,5 @@ export * from './evolution';
 export * from './queue';
 export * from './rateLimit';
 export * from './sender';
+export * from './delivery';
+export * from './health';

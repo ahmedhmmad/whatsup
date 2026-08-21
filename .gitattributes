@@ -1,0 +1,5 @@
+# Scripts and Dockerfiles run inside Linux containers: CRLF would break their
+# shebang lines, so they are always checked out with LF regardless of platform.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf

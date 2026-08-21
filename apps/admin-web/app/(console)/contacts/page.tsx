@@ -188,6 +188,7 @@ export default function ContactsPage() {
                 </th>
               ))}
               <th className="table-cell">Status</th>
+              <th className="table-cell">Consent</th>
               <th className="table-cell" />
             </tr>
           </thead>
@@ -219,6 +220,15 @@ export default function ContactsPage() {
                     {row.status}
                   </span>
                 </td>
+                <td className="table-cell">
+                  {row.consentConfirmed ? (
+                    <span className="badge bg-brand-50 text-brand-700">confirmed</span>
+                  ) : (
+                    <span className="badge bg-amber-50 text-amber-700" title="Excluded from every send">
+                      missing
+                    </span>
+                  )}
+                </td>
                 <td className="table-cell text-right">
                   <button className="btn-secondary" onClick={() => setEditing(row)}>
                     Edit
@@ -228,7 +238,7 @@ export default function ContactsPage() {
             ))}
             {!rows.length && (
               <tr>
-                <td className="table-cell text-slate-500" colSpan={6 + customFields.length}>
+                <td className="table-cell text-slate-500" colSpan={7 + customFields.length}>
                   No {labels.contactPlural.toLowerCase()} match these filters.
                 </td>
               </tr>

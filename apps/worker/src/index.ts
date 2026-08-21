@@ -7,6 +7,7 @@ import {
   logger,
   prisma,
   processMessageJob,
+  recordWorkerHeartbeat,
   type SendJobData,
 } from '@sendwhats/core';
 
@@ -67,6 +68,14 @@ async function main() {
 
   worker.on('error', (err) => logger.error({ err }, 'Worker error'));
 
+  // The heartbeat is what lets /health tell "no worker" apart from "nothing to do".
+  await recordWorkerHeartbeat({ concurrency: env.WORKER_CONCURRENCY });
+  const heartbeat = setInterval(() => {
+    void recordWorkerHeartbeat({ concurrency: env.WORKER_CONCURRENCY }).catch((err) =>
+      logger.warn({ err }, 'Could not write worker heartbeat'),
+    );
+  }, 30_000);
+
   logger.info(
     { concurrency: env.WORKER_CONCURRENCY, queue: SEND_QUEUE },
     'Send worker started',
@@ -74,6 +83,7 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     logger.info(`${signal} received, draining worker`);
+    clearInterval(heartbeat);
     await worker.close();
     await prisma.$disconnect();
     process.exit(0);

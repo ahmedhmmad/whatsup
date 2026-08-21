@@ -96,7 +96,9 @@ deployment — they exist for local development.
 | POST             | `/api/v1/admin/organizations/:id/instance/provision` | Super admin, `?force=true` to recreate           |
 | GET              | `/api/v1/admin/organizations/:id/instance/status`    | Super admin                                       |
 | DELETE           | `/api/v1/admin/organizations/:id/instance`           | Deletes the instance on the Evolution server      |
-| POST             | `/api/v1/webhooks/evolution/:instanceName`           | Evolution posts connection events here            |
+| POST             | `/api/v1/webhooks/evolution/:instanceName`           | Evolution posts connection + delivery events here |
+| GET              | `/api/v1/ops/audit`                   | Who did what, filterable, tenant-scoped                         |
+| GET              | `/api/v1/ops/alerts`                  | Things to act on: disconnects, stalled sends, missing consent   |
 | POST             | `/api/v1/campaigns/preview`           | Live recipient count + personalized preview                     |
 | GET/POST         | `/api/v1/campaigns`                   | List / create a draft with its recipients resolved              |
 | GET/PATCH/DELETE | `/api/v1/campaigns/:id`               | Detail with per-recipient rows; edits re-render prepared texts  |
@@ -128,7 +130,7 @@ and group queries are built by `buildContactWhere`, which always applies
 - [x] **Phase 3** — Evolution API client, auto-provisioning, QR connect, reconnect/logout
 - [x] **Phase 4** — Composer, targeting, live recipient count, draft with resolved recipients
 - [x] **Phase 5** — BullMQ send queue with jitter, rate caps, backoff, pause/cancel
-- [ ] Phase 6 — Delivery webhooks, daily caps, audit log surfacing, monitoring
+- [x] **Phase 6** — Delivery receipts, org daily caps, alerts, activity log, backups, monitoring
 
 ## Bulk import
 
@@ -224,6 +226,37 @@ Verified end to end against a mock Evolution server: a six-recipient class send
 completes unattended and paced, pause stops it mid-flight with the rest still queued,
 resume finishes them, cancel abandons them, a disconnect mid-campaign pauses with the
 reason shown, and a 2/minute cap holds the queue instead of failing it.
+
+## Operating it
+
+**Delivery status.** Evolution posts receipts to the webhook registered at
+provisioning, and messages advance `sent → delivered → read` on their own. Receipts
+are read permissively — the ack arrives as a string on some builds and as a Baileys
+number on others — and a message never walks backwards, so a late `SERVER_ACK`
+cannot undo a `READ`. Receipts for messages this platform did not send (chats typed
+on the phone) are ignored.
+
+**Alerts.** Every console screen carries a banner fed by `/api/v1/ops/alerts`: a
+number that is not connected, campaigns stopped mid-send, a number that dropped
+repeatedly in the last 48 hours (the signature of a rate limit or a block), and
+contacts excluded from every send for missing consent.
+
+**Activity log.** `/audit` records who did what, including who dispatched which
+campaign and to how many recipients — the record you need when a parent asks.
+
+**Send caps layer**, narrowest first: the instance's own caps, then the
+organization's `settings.sendLimits`, then the platform defaults. An operator can
+hold a whole organization down without touching its instance.
+
+**Monitoring.** `/health` covers the whole send path, not just the API: database,
+Redis, queue depth, and whether the worker is still writing its heartbeat. A dead
+worker reports `degraded` — the failure most likely to go unnoticed, since the UI
+keeps working while nothing sends. The API container has a matching healthcheck.
+
+**Backups.** The `backup` service dumps Postgres on an interval (daily by default),
+keeps `BACKUP_RETENTION_DAYS` of history in the `backups` volume, and only names a
+dump once it completes so a crashed run never leaves a file that looks restorable.
+Restore with `scripts/restore.sh`.
 
 ## Local environment note
 

@@ -106,10 +106,13 @@ export async function processMessageJob(data: SendJobData): Promise<SendOutcome>
     return { action: 'wait', retryInMs: 60_000, reason: 'No instance provisioned' };
   }
 
-  const limits = resolveLimits({
-    maxPerMinute: instance.maxPerMinute ?? undefined,
-    maxPerDay: instance.maxPerDay ?? undefined,
-  });
+  const limits = resolveLimits(
+    {
+      maxPerMinute: instance.maxPerMinute ?? undefined,
+      maxPerDay: instance.maxPerDay ?? undefined,
+    },
+    org.settings,
+  );
 
   // The number must actually be connected. A mid-campaign disconnect pauses the
   // campaign and surfaces the reason rather than burning through messages that fail.

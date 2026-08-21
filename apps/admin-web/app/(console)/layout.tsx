@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { AlertsBanner } from '@/components/AlertsBanner';
 import { useLabels, useSession } from '@/lib/session';
 
 export default function ConsoleLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
     { href: '/campaigns', label: 'Campaigns', show: true },
     { href: '/import', label: 'Import', show: true },
     { href: '/whatsapp', label: 'WhatsApp', show: true },
+    { href: '/audit', label: 'Activity', show: true },
     { href: '/admin/organizations', label: 'Organizations', show: user.role === 'super_admin' },
   ].filter((item) => item.show);
 
@@ -64,7 +66,10 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+        <AlertsBanner />
+        {children}
+      </main>
     </div>
   );
 }

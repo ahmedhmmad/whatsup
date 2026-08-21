@@ -39,14 +39,47 @@ export type Reservation =
   | { allowed: true; nextDelayMs: number; batchCooldown: boolean }
   | { allowed: false; reason: GateReason; retryInMs: number; detail: string };
 
-export function resolveLimits(overrides: Partial<InstanceLimits> = {}): InstanceLimits {
+/**
+ * Limits are layered, narrowest wins: the instance's own caps override the
+ * organization's settings, which override the platform defaults. An operator can
+ * therefore hold a whole organization down without touching its instance record.
+ */
+export function resolveLimits(
+  overrides: Partial<InstanceLimits> = {},
+  orgSettings?: unknown,
+): InstanceLimits {
+  const org = parseOrgLimits(orgSettings);
+  const pick = <K extends keyof InstanceLimits>(key: K, fallback: number): number =>
+    overrides[key] ?? org[key] ?? fallback;
+
   return {
-    minDelayMs: overrides.minDelayMs ?? env.SEND_MIN_DELAY_MS,
-    maxDelayMs: overrides.maxDelayMs ?? env.SEND_MAX_DELAY_MS,
-    maxPerMinute: overrides.maxPerMinute ?? env.SEND_MAX_PER_MINUTE,
-    maxPerDay: overrides.maxPerDay ?? env.SEND_MAX_PER_DAY,
-    batchSize: overrides.batchSize ?? env.SEND_BATCH_SIZE,
-    batchCooldownMs: overrides.batchCooldownMs ?? env.SEND_BATCH_COOLDOWN_MS,
+    minDelayMs: pick('minDelayMs', env.SEND_MIN_DELAY_MS),
+    maxDelayMs: pick('maxDelayMs', env.SEND_MAX_DELAY_MS),
+    maxPerMinute: pick('maxPerMinute', env.SEND_MAX_PER_MINUTE),
+    maxPerDay: pick('maxPerDay', env.SEND_MAX_PER_DAY),
+    batchSize: pick('batchSize', env.SEND_BATCH_SIZE),
+    batchCooldownMs: pick('batchCooldownMs', env.SEND_BATCH_COOLDOWN_MS),
+  };
+}
+
+/** Reads per-organization send limits out of Organization.settings. */
+export function parseOrgLimits(settings: unknown): Partial<InstanceLimits> {
+  const record = settings && typeof settings === 'object' ? (settings as Record<string, unknown>) : {};
+  const limits = record.sendLimits as Record<string, unknown> | undefined;
+  if (!limits) return {};
+
+  const num = (value: unknown): number | undefined => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  };
+
+  return {
+    minDelayMs: num(limits.minDelayMs),
+    maxDelayMs: num(limits.maxDelayMs),
+    maxPerMinute: num(limits.maxPerMinute),
+    maxPerDay: num(limits.maxPerDay),
+    batchSize: num(limits.batchSize),
+    batchCooldownMs: num(limits.batchCooldownMs),
   };
 }
 
