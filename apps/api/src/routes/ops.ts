@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import { asyncHandler } from '../errors';
 import { requireAuth, requireOrg } from '../middleware/auth';
 import { getQuery, validateQuery } from '../middleware/validate';
+import { getAnalytics, resolveRange } from '../services/analytics';
 
 export const opsRouter = Router();
 
@@ -127,5 +128,20 @@ opsRouter.get(
     }
 
     res.json({ alerts, instance });
+  }),
+);
+
+const analyticsQuerySchema = z.object({
+  days: z.coerce.number().min(1).max(365).default(30),
+  orgId: z.string().optional(),
+});
+
+/** Campaign performance: what was sent, what arrived, what failed, and when. */
+opsRouter.get(
+  '/analytics',
+  validateQuery(analyticsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const q = getQuery<z.infer<typeof analyticsQuerySchema>>(req);
+    res.json(await getAnalytics(req.org!.id, resolveRange(q.days)));
   }),
 );

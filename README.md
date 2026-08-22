@@ -99,6 +99,10 @@ deployment — they exist for local development.
 | POST             | `/api/v1/webhooks/evolution/:instanceName`           | Evolution posts connection + delivery events here |
 | GET              | `/api/v1/ops/audit`                   | Who did what, filterable, tenant-scoped                         |
 | GET              | `/api/v1/ops/alerts`                  | Things to act on: disconnects, stalled sends, missing consent   |
+| GET              | `/api/v1/ops/analytics`               | Sending performance over `?days=` (default 30)                  |
+| POST             | `/api/v1/campaigns/:id/schedule`      | Sends the prepared messages at a future time                    |
+| POST             | `/api/v1/campaigns/:id/unschedule`    | Cancels the schedule, back to draft                             |
+| POST/PATCH/DELETE | `/api/v1/org/users`, `/org/users/:id` | Owner-managed team; last active owner is protected             |
 | POST             | `/api/v1/campaigns/preview`           | Live recipient count + personalized preview                     |
 | GET/POST         | `/api/v1/campaigns`                   | List / create a draft with its recipients resolved              |
 | GET/PATCH/DELETE | `/api/v1/campaigns/:id`               | Detail with per-recipient rows; edits re-render prepared texts  |
@@ -131,8 +135,9 @@ and group queries are built by `buildContactWhere`, which always applies
 - [x] **Phase 4** — Composer, targeting, live recipient count, draft with resolved recipients
 - [x] **Phase 5** — BullMQ send queue with jitter, rate caps, backoff, pause/cancel
 - [x] **Phase 6** — Delivery receipts, org daily caps, alerts, activity log, backups, monitoring
-- [~] **Phase 7** — Scheduled campaigns, owner/staff permissions, template management.
-      Analytics and the org-type schema editor are still open (see below).
+- [x] **Phase 7** — Scheduled campaigns, owner/staff permissions, template management,
+      per-organization field schemas, analytics. Billing left out (it is conditional
+      on commercialising); recurring campaigns are the one remaining item.
 
 ## Bulk import
 
@@ -280,9 +285,33 @@ refuses. An organization can never be left without an active owner.
 preview rendered against a real contact, so an admin can see the actual message before
 saving. Merge targets are restricted to phone-typed fields for the vertical.
 
-Still open from Phase 7: analytics (needs delivery receipts, so it is deploy-gated) and
-a proper org-type field-schema editor, which would move vertical config out of
-`packages/shared` and into the database.
+## Defining a vertical without a code change
+
+`packages/shared` holds the built-in verticals, but an organization can override any
+of it through `PATCH /api/v1/admin/organizations/:id` with a `fieldSchema`: the
+labels (Groups → "Branches", Contacts → "Members"), the custom fields that vertical
+needs, which of them messages are addressed to, and the default template. Anything
+left unset falls back to the built-in type, and `fieldSchema: null` clears the
+override entirely.
+
+`resolveOrgConfig(org)` is the only way the vertical is read, so a custom schema
+reaches the contact form, its validation, the generated import sheet, template merge
+targets and placeholders, campaign targeting and rendering — all at once. Redefining
+a vertical also re-points the organization's default template, unless someone has
+edited it, in which case it is left alone and reported back.
+
+## Analytics
+
+`/analytics` reports what was sent, what arrived, what failed and when, over 7/30/90
+days, plus a per-campaign table and the most common failure reasons.
+
+Delivery and read rates come from Evolution's receipts, which only arrive once this
+platform is reachable from the Evolution server. Until then they read "—", not 0%:
+a school seeing "0% delivered" would reasonably conclude nothing arrived, which is
+not what the data says. "Reached WhatsApp" is the honest measure in the meantime.
+
+Still open from Phase 7: recurring campaigns. Billing is left out — the brief makes
+it conditional on commercialising.
 
 ## Local environment note
 
