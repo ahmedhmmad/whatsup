@@ -35,6 +35,8 @@ enum InstanceStatus {
 
 enum CampaignStatus {
   draft
+  /// Recipients resolved and messages waiting for a future send time.
+  scheduled
   queued
   running
   paused

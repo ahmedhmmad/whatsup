@@ -23,8 +23,10 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
     { href: '/groups', label: labels.groupPlural, show: true },
     { href: '/contacts', label: labels.contactPlural, show: true },
     { href: '/campaigns', label: 'Campaigns', show: true },
+    { href: '/templates', label: 'Templates', show: true },
     { href: '/import', label: 'Import', show: true },
     { href: '/whatsapp', label: 'WhatsApp', show: true },
+    { href: '/team', label: 'Team', show: true },
     { href: '/audit', label: 'Activity', show: true },
     { href: '/admin/organizations', label: 'Organizations', show: user.role === 'super_admin' },
   ].filter((item) => item.show);

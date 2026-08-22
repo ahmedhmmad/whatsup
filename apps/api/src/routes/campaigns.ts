@@ -11,6 +11,8 @@ import {
   dispatchCampaign,
   pauseCampaign,
   resumeCampaign,
+  scheduleCampaign,
+  unscheduleCampaign,
 } from '../services/dispatch';
 import { audienceSummary, resolveAudience } from '../services/recipients';
 
@@ -401,10 +403,60 @@ campaignsRouter.get(
       status: campaign.status,
       lastError: campaign.lastError,
       totalRecipients: campaign.totalRecipients,
+      scheduledAt: campaign.scheduledAt,
       startedAt: campaign.startedAt,
       completedAt: campaign.completedAt,
       counts,
       instance,
     });
+  }),
+);
+
+const scheduleSchema = z.object({
+  /** ISO timestamp; must be in the future. */
+  scheduledAt: z.string().datetime({ offset: true }),
+});
+
+/**
+ * Schedules an already-reviewed draft for later. The recipient list was frozen when
+ * the draft was created, so a campaign scheduled for Sunday sends to the people the
+ * admin reviewed — not to whoever matches the filter by then.
+ */
+campaignsRouter.post(
+  '/:id/schedule',
+  validateBody(scheduleSchema),
+  asyncHandler(async (req, res) => {
+    const { scheduledAt } = req.body as z.infer<typeof scheduleSchema>;
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const result = await scheduleCampaign(req.org!, campaign, new Date(scheduledAt));
+
+    await audit({
+      organizationId: req.org!.id,
+      userId: req.auth!.sub,
+      action: 'campaign.scheduled',
+      entityType: 'campaign',
+      entityId: campaign.id,
+      metadata: { scheduledAt, recipients: result.queued },
+    });
+
+    res.json(result);
+  }),
+);
+
+campaignsRouter.post(
+  '/:id/unschedule',
+  asyncHandler(async (req, res) => {
+    const campaign = await requireCampaign(req.org!.id, req.params.id);
+    const updated = await unscheduleCampaign(campaign);
+
+    await audit({
+      organizationId: req.org!.id,
+      userId: req.auth!.sub,
+      action: 'campaign.unscheduled',
+      entityType: 'campaign',
+      entityId: campaign.id,
+    });
+
+    res.json(updated);
   }),
 );

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { asyncHandler } from '../errors';
 import { audit } from '../lib/audit';
-import { requireAuth, requireOrg } from '../middleware/auth';
+import { requireAuth, requireOrg, requireOwner } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import {
   connectInstance,
@@ -50,6 +50,7 @@ instanceRouter.post(
 
 instanceRouter.post(
   '/logout',
+  requireOwner,
   asyncHandler(async (req, res) => {
     const instance = await logoutInstance(req.org!.id);
     await audit({
@@ -69,6 +70,7 @@ instanceRouter.post(
  */
 instanceRouter.post(
   '/replace-number',
+  requireOwner,
   asyncHandler(async (req, res) => {
     await logoutInstance(req.org!.id);
     const payload = await connectInstance(req.org!);
@@ -85,6 +87,7 @@ instanceRouter.post(
 /** Re-runs provisioning against Evolution — for an org onboarded while it was down. */
 instanceRouter.post(
   '/provision',
+  requireOwner,
   asyncHandler(async (req, res) => {
     const instance = await provisionInstance(req.org!, { force: false });
     await audit({
@@ -107,6 +110,7 @@ const limitsSchema = z.object({
 /** Per-instance send caps; the Phase 5 worker reads these before every batch. */
 instanceRouter.patch(
   '/limits',
+  requireOwner,
   validateBody(limitsSchema),
   asyncHandler(async (req, res) => {
     const input = req.body as z.infer<typeof limitsSchema>;

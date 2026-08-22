@@ -43,7 +43,7 @@ async function refreshCampaignProgress(campaignId: string): Promise<void> {
   });
   if (!campaign) return;
 
-  const finished = outstanding === 0 && ['running', 'queued'].includes(campaign.status);
+  const finished = outstanding === 0 && ['running', 'queued', 'scheduled'].includes(campaign.status);
 
   await prisma.campaign.update({
     where: { id: campaignId },
@@ -178,7 +178,8 @@ export async function processMessageJob(data: SendJobData): Promise<SendOutcome>
       where: { id: job.id },
       data: { status: 'sending', attempts: { increment: 1 } },
     }),
-    ...(campaign.status === 'queued'
+    // A scheduled campaign whose delay has fired starts running like any other.
+    ...(campaign.status === 'queued' || campaign.status === 'scheduled'
       ? [
           prisma.campaign.update({
             where: { id: campaign.id },

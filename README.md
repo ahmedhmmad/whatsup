@@ -131,6 +131,8 @@ and group queries are built by `buildContactWhere`, which always applies
 - [x] **Phase 4** — Composer, targeting, live recipient count, draft with resolved recipients
 - [x] **Phase 5** — BullMQ send queue with jitter, rate caps, backoff, pause/cancel
 - [x] **Phase 6** — Delivery receipts, org daily caps, alerts, activity log, backups, monitoring
+- [~] **Phase 7** — Scheduled campaigns, owner/staff permissions, template management.
+      Analytics and the org-type schema editor are still open (see below).
 
 ## Bulk import
 
@@ -257,6 +259,30 @@ keeps working while nothing sends. The API container has a matching healthcheck.
 keeps `BACKUP_RETENTION_DAYS` of history in the `backups` volume, and only names a
 dump once it completes so a crashed run never leaves a file that looks restorable.
 Restore with `scripts/restore.sh`.
+
+## Scheduling, roles and templates
+
+**Scheduled campaigns.** A reviewed draft can be sent later. The recipient list was
+already frozen when the draft was created, so a campaign scheduled for Sunday reaches
+the people the admin reviewed — not whoever matches the filter by then. The delay
+lives on the queue jobs, so a scheduled send passes exactly the same pacing, rate caps
+and connection checks as an immediate one. `POST /campaigns/:id/unschedule` pulls it
+back to draft and removes the pending jobs.
+
+**Owner vs staff.** Staff run the day-to-day: contacts, imports, composing and sending
+campaigns, editing templates. Reserved to the owner are the actions that can break the
+workspace for everyone else — managing users, unlinking or replacing the WhatsApp
+number, provisioning, and changing the send limits that protect that number from a ban.
+The API enforces this with `requireOwner`; the UI only hides what the API already
+refuses. An organization can never be left without an active owner.
+
+**Templates.** A screen over the template API with placeholder insertion and a live
+preview rendered against a real contact, so an admin can see the actual message before
+saving. Merge targets are restricted to phone-typed fields for the vertical.
+
+Still open from Phase 7: analytics (needs delivery receipts, so it is deploy-gated) and
+a proper org-type field-schema editor, which would move vertical config out of
+`packages/shared` and into the database.
 
 ## Local environment note
 

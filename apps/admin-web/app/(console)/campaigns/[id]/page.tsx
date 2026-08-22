@@ -14,6 +14,7 @@ interface CampaignDetail {
     status: string;
     totalRecipients: number;
     lastError: string | null;
+    scheduledAt: string | null;
     startedAt: string | null;
     completedAt: string | null;
     attachments: { fileName: string; type: string; url: string }[];
@@ -43,6 +44,7 @@ interface Progress {
   status: string;
   lastError: string | null;
   totalRecipients: number;
+  scheduledAt: string | null;
   counts: Record<string, number>;
   instance: { status: string; phoneNumber: string | null } | null;
 }
@@ -81,6 +83,7 @@ export default function CampaignDetailPage() {
       status: res.campaign.status,
       lastError: res.campaign.lastError,
       totalRecipients: res.campaign.totalRecipients,
+      scheduledAt: res.campaign.scheduledAt,
       counts: res.counts,
       instance: null,
     });
@@ -116,7 +119,10 @@ export default function CampaignDetailPage() {
     };
   }, [progress?.status, params.id, load]);
 
-  async function act(action: 'send' | 'pause' | 'resume' | 'cancel') {
+  async function act(
+    action: 'send' | 'pause' | 'resume' | 'cancel' | 'schedule' | 'unschedule',
+    body?: unknown,
+  ) {
     if (action === 'cancel' && !confirm('Cancel this campaign? Unsent messages will not go out.')) return;
     setBusy(action);
     setError(null);
@@ -124,7 +130,7 @@ export default function CampaignDetailPage() {
     try {
       const res = await api<{ queued?: number; estimatedMinutes?: number; remainingToday?: number }>(
         `/api/v1/campaigns/${params.id}/${action}`,
-        { method: 'POST' },
+        { method: 'POST', body },
       );
       if (res?.queued) {
         setNotice(
@@ -149,6 +155,7 @@ export default function CampaignDetailPage() {
   const counts = progress?.counts ?? data.counts;
   const status = progress?.status ?? campaign.status;
   const lastError = progress?.lastError ?? campaign.lastError;
+  const scheduledAt = progress?.scheduledAt ?? campaign.scheduledAt;
   const pages = Math.max(1, Math.ceil(jobs.total / jobs.pageSize));
 
   const done = (counts.sent ?? 0) + (counts.delivered ?? 0) + (counts.read ?? 0) + (counts.failed ?? 0);
@@ -177,6 +184,11 @@ export default function CampaignDetailPage() {
               {busy === 'send' ? 'Queueing…' : 'Send now'}
             </button>
           )}
+          {status === 'scheduled' && (
+            <button className="btn-secondary" onClick={() => act('unschedule')} disabled={busy !== null}>
+              {busy === 'unschedule' ? 'Cancelling…' : 'Cancel schedule'}
+            </button>
+          )}
           {LIVE_STATUSES.includes(status) && (
             <button className="btn-secondary" onClick={() => act('pause')} disabled={busy !== null}>
               {busy === 'pause' ? 'Pausing…' : 'Pause'}
@@ -187,7 +199,7 @@ export default function CampaignDetailPage() {
               {busy === 'resume' ? 'Resuming…' : 'Resume'}
             </button>
           )}
-          {['queued', 'running', 'paused'].includes(status) && (
+          {['queued', 'running', 'paused', 'scheduled'].includes(status) && (
             <button className="btn-danger" onClick={() => act('cancel')} disabled={busy !== null}>
               {busy === 'cancel' ? 'Cancelling…' : 'Cancel'}
             </button>
@@ -224,9 +236,22 @@ export default function CampaignDetailPage() {
         </p>
       )}
       {status === 'draft' && (
-        <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
-          Prepared but not sent. Sending paces messages with a randomized gap and respects this
-          number&apos;s rate caps, so a large campaign takes a while by design.
+        <>
+          <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
+            Prepared but not sent. Sending paces messages with a randomized gap and respects this
+            number&apos;s rate caps, so a large campaign takes a while by design.
+          </p>
+          <ScheduleForm
+            busy={busy !== null}
+            onSchedule={(iso) => act('schedule', { scheduledAt: iso })}
+          />
+        </>
+      )}
+
+      {status === 'scheduled' && scheduledAt && (
+        <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          Scheduled for {new Date(scheduledAt).toLocaleString()}. The {campaign.totalRecipients}{' '}
+          messages below are already prepared and will go out then, paced as usual.
         </p>
       )}
 
@@ -318,5 +343,70 @@ export default function CampaignDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Picks a future send time. The browser's datetime-local value is local time, so it
+ * is converted to a real instant before being sent — a school scheduling "Sunday 8am"
+ * means 8am where they are, not UTC.
+ */
+function ScheduleForm({
+  busy,
+  onSchedule,
+}: {
+  busy: boolean;
+  onSchedule: (iso: string) => void;
+}) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Default to the next round hour, which is what most reminders want anyway.
+  const suggestion = (() => {
+    const next = new Date();
+    next.setMinutes(0, 0, 0);
+    next.setHours(next.getHours() + 1);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`;
+  })();
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const chosen = new Date(value);
+    if (Number.isNaN(chosen.getTime())) {
+      setError('Pick a date and time');
+      return;
+    }
+    if (chosen.getTime() <= Date.now()) {
+      setError('That time has already passed — pick a later one, or use Send now');
+      return;
+    }
+    setError(null);
+    onSchedule(chosen.toISOString());
+  }
+
+  return (
+    <form onSubmit={submit} className="card flex flex-wrap items-end gap-3 p-4">
+      <div className="min-w-[220px]">
+        <label className="label" htmlFor="scheduledAt">
+          Or send later
+        </label>
+        <input
+          id="scheduledAt"
+          type="datetime-local"
+          className="input"
+          value={value || suggestion}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      <button className="btn-secondary" disabled={busy}>
+        {busy ? 'Working…' : 'Schedule'}
+      </button>
+      <p className="w-full text-xs text-slate-400">
+        Uses this device&apos;s time zone. The recipient list is already fixed, so
+        scheduling sends to exactly the people listed below.
+      </p>
+      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+    </form>
   );
 }

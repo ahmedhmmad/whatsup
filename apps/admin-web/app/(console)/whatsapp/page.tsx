@@ -51,7 +51,10 @@ const STATUS_TONE: Record<InstanceStatus, string> = {
 const formatPhone = (digits: string | null) => (digits ? `+${digits}` : null);
 
 export default function WhatsAppPage() {
-  const { organization } = useSession();
+  const { organization, user } = useSession();
+  // Unlinking or replacing the number, provisioning, and changing send caps are
+  // owner-only on the API too — this just keeps staff from being offered them.
+  const isOwner = user?.role === 'owner' || user?.role === 'super_admin';
   const labels = useLabels();
 
   const [instance, setInstance] = useState<InstanceState | null>(null);
@@ -183,7 +186,7 @@ export default function WhatsAppPage() {
               {busy === 'refresh' ? 'Checking…' : 'Refresh status'}
             </button>
 
-            {status === 'not_provisioned' && (
+            {status === 'not_provisioned' && isOwner && (
               <button className="btn-primary" onClick={provision} disabled={busy !== null}>
                 {busy === 'provision' ? 'Provisioning…' : 'Provision instance'}
               </button>
@@ -201,7 +204,7 @@ export default function WhatsAppPage() {
               </button>
             )}
 
-            {status === 'connected' && (
+            {status === 'connected' && isOwner && (
               <>
                 <button className="btn-secondary" onClick={replaceNumber} disabled={busy !== null}>
                   {busy === 'replace' ? 'Working…' : 'Replace number'}
@@ -253,18 +256,20 @@ export default function WhatsAppPage() {
         </div>
       )}
 
-      <SendLimits instance={instance} onSaved={setInstance} />
+      <SendLimits instance={instance} onSaved={setInstance} canEdit={isOwner} />
     </div>
   );
 }
 
-/** Per-instance send caps the Phase 5 queue will enforce. */
+/** Per-instance send caps the queue enforces. Owner-only: these protect the number. */
 function SendLimits({
   instance,
   onSaved,
+  canEdit,
 }: {
   instance: InstanceState;
   onSaved: (state: InstanceState) => void;
+  canEdit: boolean;
 }) {
   const [perMinute, setPerMinute] = useState(String(instance.maxPerMinute ?? ''));
   const [perDay, setPerDay] = useState(String(instance.maxPerDay ?? ''));
@@ -314,6 +319,7 @@ function SendLimits({
             value={perMinute}
             onChange={(e) => setPerMinute(e.target.value)}
             placeholder="default"
+            disabled={!canEdit}
           />
         </div>
         <div className="w-40">
@@ -326,11 +332,16 @@ function SendLimits({
             value={perDay}
             onChange={(e) => setPerDay(e.target.value)}
             placeholder="default"
+            disabled={!canEdit}
           />
         </div>
-        <button className="btn-secondary" disabled={busy}>
-          {busy ? 'Saving…' : 'Save limits'}
-        </button>
+        {canEdit ? (
+          <button className="btn-secondary" disabled={busy}>
+            {busy ? 'Saving…' : 'Save limits'}
+          </button>
+        ) : (
+          <p className="pb-2 text-xs text-slate-400">Only an owner can change these.</p>
+        )}
       </div>
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

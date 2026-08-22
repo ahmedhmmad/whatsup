@@ -36,6 +36,21 @@ export function requireRole(...roles: UserRole[]) {
 }
 
 /**
+ * Restricts an action to the organization's owner (a super admin acting on the org
+ * is always allowed).
+ *
+ * Staff do the daily work — contacts, imports, composing and sending campaigns —
+ * but the actions that can break the workspace for everyone else stay with the
+ * owner: managing users, unlinking or replacing the WhatsApp number, and changing
+ * the send limits that protect that number from a ban.
+ */
+export function requireOwner(req: Request, _res: Response, next: NextFunction) {
+  if (!req.auth) return next(unauthorized());
+  if (req.auth.role === 'super_admin' || req.auth.role === 'owner') return next();
+  next(forbidden('Only the organization owner can do this'));
+}
+
+/**
  * Resolves the tenant for org-scoped routes and hangs it off req.org.
  *
  * Org users are pinned to their own organization — an explicit orgId that isn't theirs
