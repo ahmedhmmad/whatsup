@@ -1,4 +1,4 @@
-import { getOrgTypeConfig, type CustomFieldDef } from '@sendwhats/shared';
+import { getOrgTypeConfig, type CustomFieldDef, type OrgTypeInput } from '@sendwhats/shared';
 
 /**
  * The column layout of an organization's import sheet.
@@ -30,7 +30,7 @@ const normalizeHeader = (value: string) =>
     .replace(/[\s_\-.]+/g, '')
     .trim();
 
-export function buildImportColumns(orgType: string): ImportColumn[] {
+export function buildImportColumns(orgType: OrgTypeInput): ImportColumn[] {
   const config = getOrgTypeConfig(orgType);
   const labels = config.labels;
   const phoneIsTarget = config.defaultMergeTarget === 'contact';

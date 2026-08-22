@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getOrgTypeConfig, renderTemplate, templatePlaceholders } from '@sendwhats/shared';
+import {
+  getOrgTypeConfig,
+  renderTemplate,
+  resolveOrgConfig,
+  templatePlaceholders,
+  type OrgTypeInput,
+} from '@sendwhats/shared';
 import { prisma } from '../db';
 import { asyncHandler, badRequest, notFound } from '../errors';
 import { requireAuth, requireOrg } from '../middleware/auth';
@@ -11,7 +17,7 @@ export const templatesRouter = Router();
 templatesRouter.use(requireAuth, requireOrg);
 
 /** Placeholders an admin can use, given this organization's type. */
-function availablePlaceholders(orgType: string) {
+function availablePlaceholders(orgType: OrgTypeInput) {
   const config = getOrgTypeConfig(orgType);
   return [
     { key: 'name', label: `${config.labels.contact} name` },
@@ -30,10 +36,10 @@ templatesRouter.get(
     });
     res.json({
       items,
-      placeholders: availablePlaceholders(req.org!.type),
+      placeholders: availablePlaceholders(resolveOrgConfig(req.org!)),
       mergeTargets: [
-        { value: 'contact', label: `${getOrgTypeConfig(req.org!.type).labels.contact} phone` },
-        ...getOrgTypeConfig(req.org!.type)
+        { value: 'contact', label: `${resolveOrgConfig(req.org!).labels.contact} phone` },
+        ...resolveOrgConfig(req.org!)
           .customFields.filter((f) => f.type === 'phone')
           .map((f) => ({ value: f.key, label: f.label })),
       ],
@@ -49,7 +55,7 @@ const templateSchema = z.object({
 });
 
 /** A merge target must be the contact's own phone or a phone-typed custom field. */
-function assertMergeTarget(orgType: string, mergeTarget: string) {
+function assertMergeTarget(orgType: OrgTypeInput, mergeTarget: string) {
   if (mergeTarget === 'contact') return;
   const field = getOrgTypeConfig(orgType).customFields.find((f) => f.key === mergeTarget);
   if (!field || field.type !== 'phone') {
@@ -62,7 +68,7 @@ templatesRouter.post(
   validateBody(templateSchema),
   asyncHandler(async (req, res) => {
     const input = req.body as z.infer<typeof templateSchema>;
-    assertMergeTarget(req.org!.type, input.mergeTarget);
+    assertMergeTarget(resolveOrgConfig(req.org!), input.mergeTarget);
 
     const template = await prisma.$transaction(async (tx) => {
       if (input.isDefault) {
@@ -87,7 +93,7 @@ templatesRouter.patch(
       where: { id: req.params.id, organizationId: req.org!.id },
     });
     if (!existing) throw notFound('Template not found');
-    if (input.mergeTarget) assertMergeTarget(req.org!.type, input.mergeTarget);
+    if (input.mergeTarget) assertMergeTarget(resolveOrgConfig(req.org!), input.mergeTarget);
 
     const template = await prisma.$transaction(async (tx) => {
       if (input.isDefault) {

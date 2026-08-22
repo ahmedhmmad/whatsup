@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { validateCustomFields, getOrgTypeConfig } from '@sendwhats/shared';
+import { validateCustomFields, resolveOrgConfig } from '@sendwhats/shared';
 import { prisma } from '../db';
 import { asyncHandler, badRequest, notFound } from '../errors';
 import { audit } from '../lib/audit';
@@ -76,7 +76,7 @@ type ContactInput = z.infer<typeof contactSchema>;
 /** Validates phone + custom fields against the org's type schema; throws on any error. */
 async function prepareContactData(req: Request, input: Partial<ContactInput>) {
   const org = req.org!;
-  const config = getOrgTypeConfig(org.type);
+  const config = resolveOrgConfig(org);
   const errors: { key: string; message: string }[] = [];
 
   let phone: string | null | undefined;
@@ -92,7 +92,7 @@ async function prepareContactData(req: Request, input: Partial<ContactInput>) {
 
   let customFields: Record<string, unknown> | undefined;
   if (input.customFields !== undefined) {
-    const validated = validateCustomFields(org.type, input.customFields);
+    const validated = validateCustomFields(config, input.customFields);
     errors.push(...validated.errors);
     customFields = validated.values;
 

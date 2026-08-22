@@ -64,6 +64,9 @@ model Organization {
   isActive    Boolean  @default(true) @map("is_active")
   /// Per-org overrides: rate caps, business hours, etc. Falls back to env defaults.
   settings    Json     @default("{}")
+  /// Overrides the vertical's labels and custom fields, so a new kind of organization
+  /// can be onboarded without a code change. Null means "use the built-in type".
+  fieldSchema Json?    @map("field_schema")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

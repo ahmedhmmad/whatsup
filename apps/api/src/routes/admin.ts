@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ORG_TYPES, ORG_TYPE_VALUES } from '@sendwhats/shared';
+import { ORG_TYPES, ORG_TYPE_VALUES, resolveOrgConfig } from '@sendwhats/shared';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
-import { asyncHandler, conflict, notFound } from '../errors';
+import { asyncHandler, badRequest, conflict, notFound } from '../errors';
 import { audit } from '../lib/audit';
 import { hashPassword } from '../lib/password';
 import { requireAuth, requireRole } from '../middleware/auth';
@@ -105,22 +106,103 @@ adminRouter.get(
   }),
 );
 
+const customFieldSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .max(40)
+    // The key becomes a custom_fields JSON key and a spreadsheet column, so keep it
+    // to something both can carry safely.
+    .regex(/^[a-z][a-z0-9_]*$/, 'Use lowercase letters, numbers and underscores'),
+  label: z.string().min(1).max(80),
+  type: z.enum(['text', 'phone', 'select', 'number']),
+  required: z.boolean().default(false),
+  options: z.array(z.object({ value: z.string().min(1), label: z.string().min(1) })).optional(),
+  filterable: z.boolean().optional(),
+  isPhoneTarget: z.boolean().optional(),
+  helpText: z.string().max(200).optional(),
+});
+
+const fieldSchemaSchema = z.object({
+  labels: z
+    .object({
+      organization: z.string().min(1).max(40).optional(),
+      group: z.string().min(1).max(40).optional(),
+      groupPlural: z.string().min(1).max(40).optional(),
+      contact: z.string().min(1).max(40).optional(),
+      contactPlural: z.string().min(1).max(40).optional(),
+    })
+    .optional(),
+  customFields: z.array(customFieldSchema).max(20).optional(),
+  defaultMergeTarget: z.string().min(1).max(40).optional(),
+  defaultTemplateBody: z.string().min(1).max(4000).optional(),
+});
+
 const updateOrgSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   countryCode: z.string().regex(/^\d{1,4}$/).optional(),
   isActive: z.boolean().optional(),
   settings: z.record(z.unknown()).optional(),
+  /** null clears the override and returns the org to its built-in vertical. */
+  fieldSchema: fieldSchemaSchema.nullable().optional(),
 });
+
+/** A merge target has to be a phone field that actually exists in the schema. */
+function assertSchemaCoherent(schema: z.infer<typeof fieldSchemaSchema> | null | undefined) {
+  if (!schema?.defaultMergeTarget || schema.defaultMergeTarget === 'contact') return;
+  const field = schema.customFields?.find((f) => f.key === schema.defaultMergeTarget);
+  if (!field || field.type !== 'phone') {
+    throw badRequest(
+      `defaultMergeTarget "${schema.defaultMergeTarget}" must name a phone field defined in customFields`,
+    );
+  }
+}
 
 adminRouter.patch(
   '/organizations/:id',
   validateBody(updateOrgSchema),
   asyncHandler(async (req, res) => {
     const data = req.body as z.infer<typeof updateOrgSchema>;
+    assertSchemaCoherent(data.fieldSchema);
+
     const org = await prisma.organization.update({
       where: { id: req.params.id },
-      data: { ...data, settings: data.settings as object | undefined },
+      data: {
+        ...data,
+        settings: data.settings as object | undefined,
+        fieldSchema:
+          data.fieldSchema === undefined
+            ? undefined
+            : data.fieldSchema === null
+              ? Prisma.DbNull
+              : (data.fieldSchema as object),
+      },
     });
+
+    // Redefining the vertical has to re-point the default template too, or campaigns
+    // keep addressing the old merge target and the new schema is only half applied.
+    // A template someone has edited is left alone and reported instead of clobbered.
+    let templateNote: string | undefined;
+    if (data.fieldSchema !== undefined) {
+      const resolved = resolveOrgConfig(org);
+      const template = await prisma.messageTemplate.findFirst({
+        where: { organizationId: org.id, isDefault: true },
+      });
+
+      if (template) {
+        const untouched = ORG_TYPE_VALUES.some(
+          (type) => ORG_TYPES[type as keyof typeof ORG_TYPES].defaultTemplateBody === template.body,
+        );
+        if (untouched) {
+          await prisma.messageTemplate.update({
+            where: { id: template.id },
+            data: { body: resolved.defaultTemplateBody, mergeTarget: resolved.defaultMergeTarget },
+          });
+        } else if (template.mergeTarget !== resolved.defaultMergeTarget) {
+          templateNote = `The default template "${template.name}" was edited, so it was left as-is — it still sends to "${template.mergeTarget}".`;
+        }
+      }
+    }
     await audit({
       organizationId: org.id,
       userId: req.auth!.sub,
@@ -129,7 +211,7 @@ adminRouter.patch(
       entityId: org.id,
       metadata: data,
     });
-    res.json(org);
+    res.json({ ...org, templateNote });
   }),
 );
 

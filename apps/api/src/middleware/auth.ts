@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { Organization } from '@prisma/client';
 import type { UserRole } from '@sendwhats/shared';
-import { getOrgTypeConfig } from '@sendwhats/shared';
+import { resolveOrgConfig } from '@sendwhats/shared';
 import { prisma } from '../db';
 import { forbidden, unauthorized, notFound, badRequest } from '../errors';
 import { verifyToken, type TokenPayload } from '../lib/tokens';
@@ -88,7 +88,7 @@ export async function requireOrg(req: Request, _res: Response, next: NextFunctio
 }
 
 export function orgContext(org: Organization) {
-  const config = getOrgTypeConfig(org.type);
+  const config = resolveOrgConfig(org);
   return {
     id: org.id,
     name: org.name,

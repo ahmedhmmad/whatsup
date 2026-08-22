@@ -1,6 +1,6 @@
 import type { Contact, MessageTemplate, Organization } from '@prisma/client';
 import {
-  getOrgTypeConfig,
+  resolveOrgConfig,
   renderTemplate,
   resolveTargetPhone,
   type TargetFilter,
@@ -74,7 +74,7 @@ export async function resolveAudience(
   org: Organization,
   options: ResolveOptions,
 ): Promise<ResolvedAudience> {
-  const config = getOrgTypeConfig(org.type);
+  const config = resolveOrgConfig(org);
   const mergeTarget = options.template?.mergeTarget ?? config.defaultMergeTarget;
   const templateBody = options.template?.body ?? '{{message}}';
 

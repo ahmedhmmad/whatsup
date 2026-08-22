@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { getOrgTypeConfig } from '@sendwhats/shared';
+import { resolveOrgConfig } from '@sendwhats/shared';
 import { prisma } from '../db';
 import { asyncHandler, badRequest, notFound } from '../errors';
 import { audit } from '../lib/audit';
@@ -26,14 +26,14 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 importsRouter.get(
   '/columns',
   asyncHandler(async (req, res) => {
-    const columns = buildImportColumns(req.org!.type).map((c) => ({
+    const columns = buildImportColumns(resolveOrgConfig(req.org!)).map((c) => ({
       target: c.target,
       key: c.key ?? c.target,
       header: c.header,
       required: c.required,
       note: c.note,
     }));
-    res.json({ columns, labels: getOrgTypeConfig(req.org!.type).labels });
+    res.json({ columns, labels: resolveOrgConfig(req.org!).labels });
   }),
 );
 
@@ -47,7 +47,7 @@ importsRouter.get(
       select: { name: true },
     });
 
-    const buffer = await buildImportTemplate(org.type, groups.map((g) => g.name));
+    const buffer = await buildImportTemplate(resolveOrgConfig(org), groups.map((g) => g.name));
     const fileName = `${org.name.replace(/[^\w-]+/g, '-').toLowerCase()}-import-template.xlsx`;
 
     res.setHeader('Content-Type', XLSX_MIME);

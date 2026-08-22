@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { Organization } from '@prisma/client';
-import { getOrgTypeConfig, validateCustomFields } from '@sendwhats/shared';
+import { resolveOrgConfig, validateCustomFields } from '@sendwhats/shared';
 import { prisma } from '../db';
 import { badRequest } from '../errors';
 import { normalizeAndValidate } from '../lib/phone';
@@ -77,8 +77,8 @@ export async function parseImportFile(
   buffer: Buffer,
   options: ParseOptions = {},
 ): Promise<{ rows: ParsedRow[]; summary: ImportSummary }> {
-  const config = getOrgTypeConfig(org.type);
-  const columns = buildImportColumns(org.type);
+  const config = resolveOrgConfig(org);
+  const columns = buildImportColumns(config);
 
   const workbook = new ExcelJS.Workbook();
   try {
@@ -174,7 +174,7 @@ export async function parseImportFile(
       const value = values[columns.indexOf(column)];
       if (value) rawCustom[column.key] = value;
     }
-    const validated = validateCustomFields(org.type, rawCustom);
+    const validated = validateCustomFields(config, rawCustom);
     errors.push(...validated.errors);
     const customFields = validated.values;
 

@@ -1,4 +1,4 @@
-import { getOrgTypeConfig } from './orgTypes';
+import { getOrgTypeConfig, type OrgTypeInput } from './orgTypes';
 
 export interface RenderableContact {
   fullName: string;
@@ -52,6 +52,6 @@ export function resolveTargetPhone(
   return value == null || value === '' ? (contact.phone ?? null) : String(value);
 }
 
-export function defaultTemplateForOrgType(type: string): string {
+export function defaultTemplateForOrgType(type: OrgTypeInput): string {
   return getOrgTypeConfig(type).defaultTemplateBody;
 }

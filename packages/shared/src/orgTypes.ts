@@ -133,11 +133,79 @@ export const ORG_TYPES: Record<OrgType, OrgTypeConfig> = {
 
 export const ORG_TYPE_VALUES: OrgType[] = ['school', 'clinic', 'generic'];
 
-export function getOrgTypeConfig(type: string | null | undefined): OrgTypeConfig {
-  return ORG_TYPES[(type as OrgType) ?? 'generic'] ?? GENERIC_CONFIG;
+/**
+ * Anything that can name a vertical: a type string, or a config that has already
+ * been resolved (including one carrying an organization's own overrides). Helpers
+ * accept both so a resolved config can be threaded through without re-resolving —
+ * and without silently falling back to the built-in defaults.
+ */
+export type OrgTypeInput = string | null | undefined | OrgTypeConfig;
+
+const isConfig = (input: OrgTypeInput): input is OrgTypeConfig =>
+  Boolean(input) && typeof input === 'object' && 'customFields' in (input as object);
+
+export function getOrgTypeConfig(input: OrgTypeInput): OrgTypeConfig {
+  if (isConfig(input)) return input;
+  return ORG_TYPES[(input as OrgType) ?? 'generic'] ?? GENERIC_CONFIG;
 }
 
-export function getCustomFieldDef(type: string, key: string): CustomFieldDef | undefined {
+/**
+ * Per-organization overrides of a vertical, stored on Organization.fieldSchema.
+ *
+ * This is what lets an operator onboard a vertical the platform has never heard of
+ * — renaming Groups to "Branches", adding a "membership number" field — without a
+ * code change. Anything left out falls back to the built-in type.
+ */
+export interface OrgSchemaOverride {
+  labels?: Partial<OrgTypeLabels>;
+  customFields?: CustomFieldDef[];
+  defaultMergeTarget?: string;
+  defaultTemplateBody?: string;
+}
+
+export function parseOrgSchemaOverride(value: unknown): OrgSchemaOverride | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const override: OrgSchemaOverride = {};
+
+  if (record.labels && typeof record.labels === 'object') {
+    override.labels = record.labels as Partial<OrgTypeLabels>;
+  }
+  if (Array.isArray(record.customFields)) {
+    // Only entries that could actually drive a form are kept.
+    override.customFields = (record.customFields as CustomFieldDef[]).filter(
+      (f) => f && typeof f.key === 'string' && f.key.length > 0 && typeof f.label === 'string',
+    );
+  }
+  if (typeof record.defaultMergeTarget === 'string') {
+    override.defaultMergeTarget = record.defaultMergeTarget;
+  }
+  if (typeof record.defaultTemplateBody === 'string') {
+    override.defaultTemplateBody = record.defaultTemplateBody;
+  }
+
+  return Object.keys(override).length ? override : null;
+}
+
+/** Resolves the vertical an organization actually runs: its type plus its overrides. */
+export function resolveOrgConfig(org: {
+  type: string | null | undefined;
+  fieldSchema?: unknown;
+}): OrgTypeConfig {
+  const base = getOrgTypeConfig(org.type);
+  const override = parseOrgSchemaOverride(org.fieldSchema);
+  if (!override) return base;
+
+  return {
+    ...base,
+    labels: { ...base.labels, ...override.labels },
+    customFields: override.customFields ?? base.customFields,
+    defaultMergeTarget: override.defaultMergeTarget ?? base.defaultMergeTarget,
+    defaultTemplateBody: override.defaultTemplateBody ?? base.defaultTemplateBody,
+  };
+}
+
+export function getCustomFieldDef(type: OrgTypeInput, key: string): CustomFieldDef | undefined {
   return getOrgTypeConfig(type).customFields.find((f) => f.key === key);
 }
 
@@ -151,7 +219,7 @@ export interface CustomFieldValidationError {
  * Unknown keys are preserved (orgs may carry extra data) but never required.
  */
 export function validateCustomFields(
-  type: string,
+  type: OrgTypeInput,
   values: Record<string, unknown> | null | undefined,
   opts: { partial?: boolean } = {},
 ): { values: Record<string, unknown>; errors: CustomFieldValidationError[] } {

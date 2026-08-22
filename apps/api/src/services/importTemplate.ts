@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { getOrgTypeConfig } from '@sendwhats/shared';
+import { getOrgTypeConfig, type OrgTypeInput } from '@sendwhats/shared';
 import { buildImportColumns } from './importSchema';
 
 /**
@@ -7,7 +7,7 @@ import { buildImportColumns } from './importSchema';
  * fields that vertical actually uses, an example row, dropdowns for select fields,
  * and an instructions sheet.
  */
-export async function buildImportTemplate(orgType: string, groupNames: string[]): Promise<Buffer> {
+export async function buildImportTemplate(orgType: OrgTypeInput, groupNames: string[]): Promise<Buffer> {
   const config = getOrgTypeConfig(orgType);
   const columns = buildImportColumns(orgType);
 
