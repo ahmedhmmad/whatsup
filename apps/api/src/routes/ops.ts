@@ -133,6 +133,8 @@ opsRouter.get(
 
 const analyticsQuerySchema = z.object({
   days: z.coerce.number().min(1).max(365).default(30),
+  /** Reader's offset from UTC, so send hours are reported in their own clock. */
+  utcOffsetMinutes: z.coerce.number().min(-840).max(840).default(0),
   orgId: z.string().optional(),
 });
 
@@ -142,6 +144,6 @@ opsRouter.get(
   validateQuery(analyticsQuerySchema),
   asyncHandler(async (req, res) => {
     const q = getQuery<z.infer<typeof analyticsQuerySchema>>(req);
-    res.json(await getAnalytics(req.org!.id, resolveRange(q.days)));
+    res.json(await getAnalytics(req.org!.id, resolveRange(q.days), q.utcOffsetMinutes));
   }),
 );

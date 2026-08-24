@@ -18,7 +18,8 @@
     "dev:web": "npm run dev -w @sendwhats/admin-web",
     "prisma:generate": "npm run prisma:generate -w @sendwhats/api",
     "prisma:migrate": "npm run prisma:migrate -w @sendwhats/api",
-    "seed": "npm run seed -w @sendwhats/api"
+    "seed": "npm run seed -w @sendwhats/api",
+    "seed:demo": "npm run seed:demo -w @sendwhats/api"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.18.0",

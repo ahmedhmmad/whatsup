@@ -45,7 +45,9 @@ export default function AnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await api<Analytics>('/api/v1/ops/analytics', { query: { days } });
+    // The browser knows its own offset; send hours are reported in that clock.
+    const utcOffsetMinutes = -new Date().getTimezoneOffset();
+    const res = await api<Analytics>('/api/v1/ops/analytics', { query: { days, utcOffsetMinutes } });
     setData(res);
   }, [days]);
 

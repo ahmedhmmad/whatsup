@@ -41,7 +41,16 @@ export interface AnalyticsSummary {
 const pct = (part: number, whole: number): number | null =>
   whole > 0 ? Math.round((part / whole) * 1000) / 10 : null;
 
-export async function getAnalytics(organizationId: string, range: AnalyticsRange) {
+export async function getAnalytics(
+  organizationId: string,
+  range: AnalyticsRange,
+  /**
+   * Minutes ahead of UTC to report send hours in. "Best time to send" is only
+   * meaningful in the reader's own clock — a Cairo school's 9am send would
+   * otherwise be reported as 06:00.
+   */
+  utcOffsetMinutes = 0,
+) {
   const window = { gte: range.since, lte: range.until };
 
   const [byStatus, campaigns, hourly, perCampaign, failures] = await Promise.all([
@@ -54,7 +63,8 @@ export async function getAnalytics(organizationId: string, range: AnalyticsRange
     // Send hour vs. how often those messages were delivered — the raw material for
     // "best time to send". Grouped in SQL because the row count can be large.
     prisma.$queryRaw<{ hour: number; sent: bigint; delivered: bigint }[]>`
-      SELECT EXTRACT(HOUR FROM j.sent_at)::int AS hour,
+      -- Prisma binds the offset as bigint; make_interval needs an int.
+      SELECT EXTRACT(HOUR FROM j.sent_at + make_interval(mins => ${utcOffsetMinutes}::int))::int AS hour,
              COUNT(*)::bigint AS sent,
              COUNT(*) FILTER (WHERE j.status IN ('delivered', 'read'))::bigint AS delivered
       FROM message_jobs j
