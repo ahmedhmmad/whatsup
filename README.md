@@ -313,6 +313,29 @@ not what the data says. "Reached WhatsApp" is the honest measure in the meantime
 Still open from Phase 7: recurring campaigns. Billing is left out — the brief makes
 it conditional on commercialising.
 
+## Arabic and right-to-left
+
+The console runs in English or Arabic, switched from the header and remembered per
+browser. Direction is applied by an inline script before first paint, so an Arabic
+user never watches the layout flip after load.
+
+- **UI text** comes from `packages/shared/src/i18n.ts`. Adding a locale is a column
+  in `DICTIONARY`; a missing translation falls back to English, then to the key.
+- **Vertical labels** translate too — Classes/Students become الفصول/الطلاب, and
+  custom fields carry `labelAr`. A custom vertical's renamed labels apply to both
+  locales, since there is no built-in Arabic for words an operator just invented.
+- **API messages** are translated at the response boundary from
+  `packages/shared/src/serverMessages.ts`, keyed by the English text — the gettext
+  approach. The console sends `Accept-Language`; `?locale=ar` overrides it. An
+  untranslated message still reaches the user in English rather than as a raw key,
+  and an unsupported language falls back rather than failing the request.
+- **Layout** uses logical properties (`ms-`, `me-`, `ps-`, `pe-`, `text-start`), so
+  new screens mirror correctly without anyone remembering to add `rtl:` variants.
+
+Not translated, by design: organization-authored content (contact names, campaign
+text, template bodies) and raw provider errors from WhatsApp, which arrive in
+English from Evolution.
+
 ## Local environment note
 
 On Node 26 the `tsc` **CLI** exits silently without compiling, so `npm run build` and

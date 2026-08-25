@@ -14,6 +14,8 @@ import {
   scheduleCampaign,
   unscheduleCampaign,
 } from '../services/dispatch';
+import { translateServerMessage } from '@sendwhats/shared';
+import { localeOf } from '../middleware/locale';
 import { audienceSummary, resolveAudience } from '../services/recipients';
 
 export const campaignsRouter = Router();
@@ -82,7 +84,10 @@ campaignsRouter.post(
       summary: audienceSummary(audience),
       sample: audience.recipients,
       // Only the first few skips are listed; the summary carries the full counts.
-      skippedSample: audience.skipped.slice(0, 20),
+      skippedSample: audience.skipped.slice(0, 20).map((skip) => ({
+        ...skip,
+        detail: skip.detail ? translateServerMessage(localeOf(req), skip.detail) : skip.detail,
+      })),
       mergeTarget: audience.mergeTarget,
       templateBody: audience.templateBody,
       template: template ? { id: template.id, name: template.name } : null,

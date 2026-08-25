@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { ContactForm, type ContactRecord } from '@/components/ContactForm';
-import { useT } from '@/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface ContactRow extends ContactRecord {
@@ -15,7 +15,7 @@ const PAGE_SIZE = 25;
 export default function ContactsPage() {
   const { organization } = useSession();
   const labels = useLabels();
-  const t = useT();
+  const { t, word } = useLocale();
   const customFields = useMemo(() => organization?.customFields ?? [], [organization]);
   const filterableFields = useMemo(() => customFields.filter((f) => f.filterable), [customFields]);
 
@@ -58,7 +58,7 @@ export default function ContactsPage() {
 
   async function bulk(action: 'delete' | 'activate' | 'deactivate') {
     if (!selected.size) return;
-    if (action === 'delete' && !confirm(`Delete ${selected.size} ${labels.contactPlural.toLowerCase()}?`)) {
+    if (action === 'delete' && !confirm(t('confirm.deleteContacts', { count: selected.size, label: labels.contactPlural }))) {
       return;
     }
     try {
@@ -219,7 +219,7 @@ export default function ContactsPage() {
                       row.status === 'active' ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500'
                     }`}
                   >
-                    {row.status}
+                    {word(row.status)}
                   </span>
                 </td>
                 <td className="table-cell">

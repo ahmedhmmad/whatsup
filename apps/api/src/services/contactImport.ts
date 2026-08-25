@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { Organization } from '@prisma/client';
-import { resolveOrgConfig, validateCustomFields } from '@sendwhats/shared';
+import { localizedFieldLabel, resolveOrgConfig, validateCustomFields } from '@sendwhats/shared';
 import { prisma } from '../db';
 import { badRequest } from '../errors';
 import { normalizeAndValidate } from '../lib/phone';
@@ -41,6 +41,8 @@ export interface ImportSummary {
 export interface ParseOptions {
   defaultGroupId?: string | null;
   createMissingGroups?: boolean;
+  /** Row messages are rendered straight into the preview, so they follow the UI. */
+  locale?: string;
 }
 
 /** Flattens the shapes ExcelJS returns (rich text, formula results, hyperlinks) to plain text. */
@@ -174,7 +176,7 @@ export async function parseImportFile(
       const value = values[columns.indexOf(column)];
       if (value) rawCustom[column.key] = value;
     }
-    const validated = validateCustomFields(config, rawCustom);
+    const validated = validateCustomFields(config, rawCustom, { locale: options.locale });
     errors.push(...validated.errors);
     const customFields = validated.values;
 
@@ -183,8 +185,12 @@ export async function parseImportFile(
       const raw = customFields[field.key];
       if (raw === undefined || raw === null || raw === '') continue;
       const result = normalizeAndValidate(String(raw), org.countryCode);
-      if (!result.ok) errors.push({ key: field.key, message: `${field.label}: ${result.reason}` });
-      else customFields[field.key] = result.digits;
+      if (!result.ok) {
+        const label = localizedFieldLabel(field, options.locale ?? 'en');
+        errors.push({ key: field.key, message: `${label}: ${result.reason}` });
+      } else {
+        customFields[field.key] = result.digits;
+      }
     }
 
     const groupName = get('group') || defaultGroup?.name || null;

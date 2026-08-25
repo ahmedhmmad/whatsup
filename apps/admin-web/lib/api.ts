@@ -51,6 +51,12 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // So server-side messages come back in the language the console is showing.
+  try {
+    headers['Accept-Language'] = localStorage.getItem('sendwhats.locale') ?? 'en';
+  } catch {
+    // Storage blocked: the API falls back to English on its own.
+  }
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const orgId = getActiveOrgId();

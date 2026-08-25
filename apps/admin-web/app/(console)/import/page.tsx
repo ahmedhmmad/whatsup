@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveOrgId, getToken, api, ApiError } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface ParsedRow {
@@ -45,7 +45,7 @@ const ACTION_TONE: Record<ParsedRow['action'], string> = {
 export default function ImportPage() {
   const { organization } = useSession();
   const labels = useLabels();
-  const t = useT();
+  const { t, word } = useLocale();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
@@ -167,8 +167,7 @@ export default function ImportPage() {
       <div>
         <h1 className="text-xl font-semibold">{t('import.title', { label: labels.contactPlural })}</h1>
         <p className="text-sm text-slate-500">
-          Download the template for this {labels.organization.toLowerCase()}, fill it in, and upload it.
-          Nothing is saved until you confirm the preview.
+          {t('help.import', { label: labels.organization })}
         </p>
       </div>
 
@@ -295,7 +294,7 @@ export default function ImportPage() {
                       </td>
                       <td className="table-cell text-slate-400">{row.rowNumber}</td>
                       <td className="table-cell">
-                        <span className={`badge ${ACTION_TONE[row.action]}`}>{row.action}</span>
+                        <span className={`badge ${ACTION_TONE[row.action]}`}>{word(row.action)}</span>
                       </td>
                       <td className="table-cell font-medium">{row.data.fullName || '—'}</td>
                       <td className="table-cell text-slate-500">{row.data.groupName ?? '—'}</td>

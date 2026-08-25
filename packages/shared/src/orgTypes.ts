@@ -263,7 +263,7 @@ export interface CustomFieldValidationError {
 export function validateCustomFields(
   type: OrgTypeInput,
   values: Record<string, unknown> | null | undefined,
-  opts: { partial?: boolean } = {},
+  opts: { partial?: boolean; locale?: string } = {},
 ): { values: Record<string, unknown>; errors: CustomFieldValidationError[] } {
   const config = getOrgTypeConfig(type);
   const input = { ...(values ?? {}) };
@@ -275,7 +275,7 @@ export function validateCustomFields(
 
     if (isEmpty) {
       if (field.required && !opts.partial) {
-        errors.push({ key: field.key, message: `${field.label} is required` });
+        errors.push({ key: field.key, message: `${localizedFieldLabel(field, opts.locale ?? 'en')} is required` });
       }
       delete input[field.key];
       continue;
@@ -290,7 +290,7 @@ export function validateCustomFields(
       if (!match) {
         errors.push({
           key: field.key,
-          message: `${field.label} must be one of: ${field.options.map((o) => o.value).join(', ')}`,
+          message: `${localizedFieldLabel(field, opts.locale ?? 'en')} must be one of: ${field.options.map((o) => o.value).join(', ')}`,
         });
         continue;
       }
@@ -301,7 +301,7 @@ export function validateCustomFields(
     if (field.type === 'number') {
       const num = Number(value);
       if (Number.isNaN(num)) {
-        errors.push({ key: field.key, message: `${field.label} must be a number` });
+        errors.push({ key: field.key, message: `${localizedFieldLabel(field, opts.locale ?? 'en')} must be a number` });
         continue;
       }
       input[field.key] = num;

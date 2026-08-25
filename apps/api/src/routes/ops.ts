@@ -4,6 +4,8 @@ import { prisma } from '../db';
 import { asyncHandler } from '../errors';
 import { requireAuth, requireOrg } from '../middleware/auth';
 import { getQuery, validateQuery } from '../middleware/validate';
+import { translateServerMessage } from '@sendwhats/shared';
+import { localeOf } from '../middleware/locale';
 import { getAnalytics, resolveRange } from '../services/analytics';
 
 export const opsRouter = Router();
@@ -83,20 +85,29 @@ opsRouter.get(
       }),
     ]);
 
+    const locale = localeOf(req);
+    const ar = locale === 'ar';
+    const state = (value: string) => translateServerMessage(locale, value.replace(/_/g, ' '));
     const alerts: { level: 'error' | 'warning' | 'info'; message: string; href?: string }[] = [];
 
     if (!instance || instance.status === 'not_provisioned') {
       alerts.push({
         level: 'error',
-        message: 'No WhatsApp number is set up yet — campaigns cannot send.',
+        message: ar
+          ? 'لم يتم إعداد رقم واتساب بعد — لا يمكن إرسال الحملات.'
+          : 'No WhatsApp number is set up yet — campaigns cannot send.',
         href: '/whatsapp',
       });
     } else if (instance.status !== 'connected') {
       alerts.push({
         level: 'error',
-        message: `The WhatsApp number is ${instance.status.replace(/_/g, ' ')}${
-          instance.lastError ? ` — ${instance.lastError}` : ''
-        }.`,
+        message: ar
+          ? `رقم واتساب في حالة ${state(instance.status)}${
+              instance.lastError ? ` — ${translateServerMessage(locale, instance.lastError)}` : ''
+            }.`
+          : `The WhatsApp number is ${instance.status.replace(/_/g, ' ')}${
+              instance.lastError ? ` — ${instance.lastError}` : ''
+            }.`,
         href: '/whatsapp',
       });
     }
@@ -104,9 +115,13 @@ opsRouter.get(
     for (const campaign of stalled) {
       alerts.push({
         level: campaign.status === 'failed' ? 'error' : 'warning',
-        message: `“${campaign.name ?? 'Untitled campaign'}” is ${campaign.status}${
-          campaign.lastError ? ` — ${campaign.lastError}` : ''
-        }.`,
+        message: ar
+          ? `الحملة «${campaign.name ?? 'بدون عنوان'}» في حالة ${state(campaign.status)}${
+              campaign.lastError ? ` — ${translateServerMessage(locale, campaign.lastError)}` : ''
+            }.`
+          : `“${campaign.name ?? 'Untitled campaign'}” is ${campaign.status}${
+              campaign.lastError ? ` — ${campaign.lastError}` : ''
+            }.`,
         href: `/campaigns/${campaign.id}`,
       });
     }
@@ -114,7 +129,9 @@ opsRouter.get(
     if (disconnects >= 3) {
       alerts.push({
         level: 'warning',
-        message: `This number dropped ${disconnects} times in the last ${ALERT_WINDOW_HOURS} hours — it may be rate limited or blocked.`,
+        message: ar
+          ? `انقطع هذا الرقم ${disconnects} مرات خلال آخر ${ALERT_WINDOW_HOURS} ساعة — قد يكون مقيداً أو محظوراً.`
+          : `This number dropped ${disconnects} times in the last ${ALERT_WINDOW_HOURS} hours — it may be rate limited or blocked.`,
         href: '/whatsapp',
       });
     }
@@ -122,7 +139,9 @@ opsRouter.get(
     if (contactsWithoutConsent > 0) {
       alerts.push({
         level: 'info',
-        message: `${contactsWithoutConsent} active contact(s) have no confirmed consent and are excluded from every send.`,
+        message: ar
+          ? `${contactsWithoutConsent} جهة اتصال نشطة بدون موافقة مؤكدة، وسيتم استبعادها من كل إرسال.`
+          : `${contactsWithoutConsent} active contact(s) have no confirmed consent and are excluded from every send.`,
         href: '/contacts',
       });
     }

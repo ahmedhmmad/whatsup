@@ -8,6 +8,7 @@ import {
   isRtl,
   localizeDigits,
   translate,
+  translateServerMessage,
   type Locale,
   type TranslationKey,
 } from '@sendwhats/shared';
@@ -23,6 +24,8 @@ interface LocaleValue {
   /** Formats a date in the active locale, right-to-left safe. */
   formatDate: (value: string | Date, withTime?: boolean) => string;
   digits: (value: string | number) => string;
+  /** Statuses and other words the API sends, translated through the shared table. */
+  word: (value: string | null | undefined) => string;
 }
 
 const LocaleContext = createContext<LocaleValue | null>(null);
@@ -72,6 +75,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
         });
       },
       digits: (input) => localizeDigits(input, locale),
+      word: (input) => (input ? translateServerMessage(locale, input.replace(/_/g, ' ')) : ''),
     };
   }, [locale, setLocale]);
 

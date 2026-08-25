@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
+import { translateServerMessage } from '@sendwhats/shared';
+import { localeOf } from './middleware/locale';
 import { logger } from './logger';
 
 export class AppError extends Error {
@@ -24,14 +26,31 @@ export const notFound = (message = 'Not found') => new AppError(404, 'not_found'
 export const conflict = (message: string, details?: unknown) =>
   new AppError(409, 'conflict', message, details);
 
-export function notFoundHandler(_req: Request, res: Response) {
-  res.status(404).json({ error: { code: 'not_found', message: 'Route not found' } });
+export function notFoundHandler(req: Request, res: Response) {
+  res
+    .status(404)
+    .json({ error: { code: 'not_found', message: say(req, 'Route not found') } });
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+/** Translates a message into the requester's language, falling back to English. */
+const say = (req: Request, message: string) => translateServerMessage(localeOf(req), message);
+
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
     return res.status(err.status).json({
-      error: { code: err.code, message: err.message, details: err.details },
+      error: {
+        code: err.code,
+        message: say(req, err.message),
+        // Field-level messages are what the form actually shows, so they are
+        // translated too rather than leaving a bilingual error panel.
+        details: Array.isArray(err.details)
+          ? (err.details as { message?: string }[]).map((detail) =>
+              detail && typeof detail.message === 'string'
+                ? { ...detail, message: say(req, detail.message) }
+                : detail,
+            )
+          : err.details,
+      },
     });
   }
 
@@ -39,8 +58,8 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return res.status(400).json({
       error: {
         code: 'validation_error',
-        message: 'Request validation failed',
-        details: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        message: say(req, 'Request validation failed'),
+        details: err.issues.map((i) => ({ path: i.path.join('.'), message: say(req, i.message) })),
       },
     });
   }
@@ -49,16 +68,18 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     if (err.code === 'P2002') {
       const target = (err.meta?.target as string[] | undefined)?.join(', ') ?? 'field';
       return res.status(409).json({
-        error: { code: 'conflict', message: `A record with this ${target} already exists` },
+        error: { code: 'conflict', message: say(req, `A record with this ${target} already exists`) },
       });
     }
     if (err.code === 'P2025') {
-      return res.status(404).json({ error: { code: 'not_found', message: 'Not found' } });
+      return res.status(404).json({ error: { code: 'not_found', message: say(req, 'Not found') } });
     }
   }
 
   logger.error({ err }, 'Unhandled error');
-  return res.status(500).json({ error: { code: 'internal_error', message: 'Internal server error' } });
+  return res
+    .status(500)
+    .json({ error: { code: 'internal_error', message: say(req, 'Internal server error') } });
 }
 
 /** Wraps an async route handler so rejections reach the error middleware. */

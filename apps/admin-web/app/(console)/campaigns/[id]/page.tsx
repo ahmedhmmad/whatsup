@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 import { useLabels } from '@/lib/session';
 
 interface CampaignDetail {
@@ -66,7 +66,7 @@ export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const labels = useLabels();
-  const t = useT();
+  const { t, word } = useLocale();
 
   const [data, setData] = useState<CampaignDetail | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -125,7 +125,7 @@ export default function CampaignDetailPage() {
     action: 'send' | 'pause' | 'resume' | 'cancel' | 'schedule' | 'unschedule',
     body?: unknown,
   ) {
-    if (action === 'cancel' && !confirm('Cancel this campaign? Unsent messages will not go out.')) return;
+    if (action === 'cancel' && !confirm(t('confirm.cancelCampaign'))) return;
     setBusy(action);
     setError(null);
     setNotice(null);
@@ -179,7 +179,7 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="badge bg-slate-100 text-slate-600">{status}</span>
+          <span className="badge bg-slate-100 text-slate-600">{word(status)}</span>
 
           {status === 'draft' && (
             <button className="btn-primary" onClick={() => act('send')} disabled={busy !== null}>
@@ -210,7 +210,7 @@ export default function CampaignDetailPage() {
             <button
               className="btn-danger"
               onClick={async () => {
-                if (!confirm('Delete this campaign and its prepared messages?')) return;
+                if (!confirm(t('confirm.deleteCampaign'))) return;
                 await api(`/api/v1/campaigns/${params.id}`, { method: 'DELETE' });
                 router.push('/campaigns');
               }}
@@ -276,7 +276,7 @@ export default function CampaignDetailPage() {
           .filter((key) => counts[key])
           .map((key) => (
             <div key={key} className="card px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{key}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{word(key)}</p>
               <p className="text-lg font-semibold">{counts[key]}</p>
             </div>
           ))}
@@ -314,7 +314,7 @@ export default function CampaignDetailPage() {
                 <td className="table-cell">+{job.phone}</td>
                 <td className="table-cell">
                   <span className={`badge ${JOB_TONE[job.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                    {job.status}
+                    {word(job.status)}
                   </span>
                   {job.attempts > 1 && (
                     <span className="ms-1 text-xs text-slate-400">×{job.attempts}</span>
@@ -360,7 +360,7 @@ function ScheduleForm({
   busy: boolean;
   onSchedule: (iso: string) => void;
 }) {
-  const t = useT();
+  const { t } = useLocale();
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 

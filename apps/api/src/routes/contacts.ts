@@ -1,12 +1,13 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { validateCustomFields, resolveOrgConfig } from '@sendwhats/shared';
+import { localizedFieldLabel, validateCustomFields, resolveOrgConfig } from '@sendwhats/shared';
 import { prisma } from '../db';
 import { asyncHandler, badRequest, notFound } from '../errors';
 import { audit } from '../lib/audit';
 import { normalizeAndValidate } from '../lib/phone';
 import { requireAuth, requireOrg } from '../middleware/auth';
 import { getQuery, validateBody, validateQuery } from '../middleware/validate';
+import { localeOf } from '../middleware/locale';
 import { buildContactWhere } from '../services/contactQuery';
 
 export const contactsRouter = Router();
@@ -92,7 +93,7 @@ async function prepareContactData(req: Request, input: Partial<ContactInput>) {
 
   let customFields: Record<string, unknown> | undefined;
   if (input.customFields !== undefined) {
-    const validated = validateCustomFields(config, input.customFields);
+    const validated = validateCustomFields(config, input.customFields, { locale: localeOf(req) });
     errors.push(...validated.errors);
     customFields = validated.values;
 
@@ -102,8 +103,14 @@ async function prepareContactData(req: Request, input: Partial<ContactInput>) {
       const raw = customFields[field.key];
       if (raw === undefined || raw === null || raw === '') continue;
       const result = normalizeAndValidate(String(raw), org.countryCode);
-      if (!result.ok) errors.push({ key: field.key, message: `${field.label}: ${result.reason}` });
-      else customFields[field.key] = result.digits;
+      if (!result.ok) {
+        // The label prefix is part of the message the form shows, so it follows
+        // the requester's language too.
+        const label = localizedFieldLabel(field, localeOf(req));
+        errors.push({ key: field.key, message: `${label}: ${result.reason}` });
+      } else {
+        customFields[field.key] = result.digits;
+      }
     }
   }
 

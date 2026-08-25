@@ -9,6 +9,8 @@ import { requireAuth, requireOrg } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { commitImport, parseImportFile, type ParsedRow } from '../services/contactImport';
 import { buildImportColumns } from '../services/importSchema';
+import { translateServerMessage } from '@sendwhats/shared';
+import { localeOf } from '../middleware/locale';
 import { buildImportTemplate } from '../services/importTemplate';
 
 export const importsRouter = Router();
@@ -70,10 +72,19 @@ importsRouter.post(
     const defaultGroupId = (req.body?.groupId as string | undefined) || null;
     const createMissingGroups = req.body?.createMissingGroups !== 'false';
 
+    const locale = localeOf(req);
     const { rows, summary } = await parseImportFile(org, req.file.buffer, {
       defaultGroupId,
       createMissingGroups,
+      locale,
     });
+
+    // Row-level errors and warnings are displayed verbatim in the preview table.
+    const localizedRows = rows.map((row) => ({
+      ...row,
+      errors: row.errors.map((e) => ({ ...e, message: translateServerMessage(locale, e.message) })),
+      warnings: row.warnings.map((w) => translateServerMessage(locale, w)),
+    }));
 
     const batch = await prisma.importBatch.create({
       data: {
@@ -88,7 +99,7 @@ importsRouter.post(
       select: { id: true, fileName: true, createdAt: true },
     });
 
-    res.status(201).json({ batch, summary, rows });
+    res.status(201).json({ batch, summary, rows: localizedRows });
   }),
 );
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 interface CampaignRow {
@@ -32,7 +32,7 @@ const STATUS_TONE: Record<string, string> = {
 
 export default function CampaignsPage() {
   const { organization } = useSession();
-  const t = useT();
+  const { t, word } = useLocale();
   const [items, setItems] = useState<CampaignRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +76,7 @@ export default function CampaignsPage() {
                 </td>
                 <td className="table-cell">
                   <span className={`badge ${STATUS_TONE[campaign.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                    {campaign.status}
+                    {word(campaign.status)}
                   </span>
                 </td>
                 <td className="table-cell">{campaign.totalRecipients}</td>

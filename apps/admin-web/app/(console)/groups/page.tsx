@@ -47,7 +47,7 @@ export default function GroupsPage() {
   }
 
   async function remove(group: Group) {
-    if (!confirm(`Delete ${group.name}? Its ${labels.contactPlural.toLowerCase()} are kept but ungrouped.`)) return;
+    if (!confirm(t('confirm.deleteGroup', { name: group.name, label: labels.contactPlural }))) return;
     try {
       await api(`/api/v1/groups/${group.id}`, { method: 'DELETE' });
       await load();

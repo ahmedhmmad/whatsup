@@ -272,6 +272,95 @@ export const DICTIONARY = {
   'analytics.awaitingReceipts': { en: 'Awaiting receipts', ar: 'في انتظار إشعارات التسليم' },
   'analytics.noCampaigns': { en: 'No campaigns in this period.', ar: 'لا توجد حملات في هذه الفترة.' },
 
+
+  // --- organizations (super admin) -----------------------------------------
+  'orgs.title': { en: 'Organizations', ar: 'المؤسسات' },
+  'orgs.onboard': { en: 'Onboard an organization', ar: 'إضافة مؤسسة جديدة' },
+  'orgs.type': { en: 'Type', ar: 'النوع' },
+  'orgs.countryCode': { en: 'Country dialling code', ar: 'رمز الدولة' },
+  'orgs.ownerEmail': { en: 'Owner email', ar: 'بريد المالك' },
+  'orgs.ownerPassword': { en: 'Owner password', ar: 'كلمة مرور المالك' },
+  'orgs.create': { en: 'Create organization', ar: 'إنشاء المؤسسة' },
+  'orgs.creating': { en: 'Creating…', ar: 'جارٍ الإنشاء…' },
+  'orgs.users': { en: 'Users', ar: 'المستخدمون' },
+  'orgs.groups': { en: 'Groups', ar: 'المجموعات' },
+  'orgs.contacts': { en: 'Contacts', ar: 'جهات الاتصال' },
+  'orgs.suspend': { en: 'Suspend', ar: 'إيقاف' },
+  'orgs.activate': { en: 'Activate', ar: 'تفعيل' },
+  'orgs.suspended': { en: 'suspended', ar: 'موقوفة' },
+  'orgs.empty': { en: 'No organizations yet.', ar: 'لا توجد مؤسسات بعد.' },
+  'orgs.superAdminOnly': { en: 'Super admin access required.', ar: 'مطلوب صلاحية مدير المنصة.' },
+
+  // --- confirmations --------------------------------------------------------
+  'confirm.deleteGroup': {
+    en: 'Delete {name}? Its {label} are kept but ungrouped.',
+    ar: 'حذف {name}؟ سيتم الاحتفاظ بـ{label} بدون مجموعة.',
+  },
+  'confirm.deleteContacts': { en: 'Delete {count} {label}?', ar: 'حذف {count} من {label}؟' },
+  'confirm.deleteTemplate': { en: 'Delete the “{name}” template?', ar: 'حذف القالب «{name}»؟' },
+  'confirm.removeUser': {
+    en: 'Remove {email}? They lose access immediately.',
+    ar: 'إزالة {email}؟ سيفقد صلاحية الدخول فوراً.',
+  },
+  'confirm.newPassword': {
+    en: 'New password for {email} (at least 8 characters)',
+    ar: 'كلمة مرور جديدة لـ {email} (٨ أحرف على الأقل)',
+  },
+  'confirm.cancelCampaign': {
+    en: 'Cancel this campaign? Unsent messages will not go out.',
+    ar: 'إلغاء هذه الحملة؟ لن تُرسل الرسائل المتبقية.',
+  },
+  'confirm.deleteCampaign': {
+    en: 'Delete this campaign and its prepared messages?',
+    ar: 'حذف هذه الحملة والرسائل المجهزة بها؟',
+  },
+  'confirm.logout': {
+    en: 'Disconnect this WhatsApp number? Campaigns cannot send until it is reconnected.',
+    ar: 'فصل رقم واتساب هذا؟ لن ترسل الحملات حتى يعاد ربطه.',
+  },
+  'confirm.replaceNumber': {
+    en: 'Disconnect the current number and show a QR for a new one?',
+    ar: 'فصل الرقم الحالي وعرض رمز QR لرقم جديد؟',
+  },
+
+  // --- explanatory copy -----------------------------------------------------
+  'help.whatsapp': {
+    en: 'Link the number this {label} sends from. Scanning is a one-time step — the connection stays live until the number is logged out or replaced.',
+    ar: 'اربط الرقم الذي ترسل منه {label}. المسح يتم مرة واحدة — يبقى الاتصال قائماً حتى يتم فصل الرقم أو استبداله.',
+  },
+  'help.limits': {
+    en: 'Caps for this number. Leave empty to use the platform defaults. Lower is safer — WhatsApp flags numbers that send in bursts.',
+    ar: 'حدود هذا الرقم. اتركها فارغة لاستخدام الإعدادات الافتراضية. الأقل أأمن — واتساب يحظر الأرقام التي ترسل دفعات كبيرة.',
+  },
+  'help.import': {
+    en: 'Download the template for this {label}, fill it in, and upload it. Nothing is saved until you confirm the preview.',
+    ar: 'حمّل النموذج الخاص بـ{label}، املأه، ثم ارفعه. لا يتم حفظ أي شيء حتى تؤكد المعاينة.',
+  },
+  'help.templates': {
+    en: 'A template wraps the message an admin types — the greeting, the {label} name, and which number it goes to.',
+    ar: 'القالب يغلّف الرسالة التي يكتبها المسؤول — التحية، واسم {label}، والرقم الذي تُرسل إليه.',
+  },
+  'help.team': {
+    en: 'Who can sign in to this {label}. Staff manage contacts, imports and campaigns. Owners can also manage the team, the WhatsApp connection and the sending limits.',
+    ar: 'من يمكنه الدخول إلى {label}. الموظفون يديرون جهات الاتصال والاستيراد والحملات. المالكون يديرون أيضاً الفريق واتصال واتساب وحدود الإرسال.',
+  },
+  'help.composer': {
+    en: 'Choose who receives it, write the message, review exactly what will be sent.',
+    ar: 'اختر من سيستلمها، اكتب الرسالة، وراجع بالضبط ما سيتم إرساله.',
+  },
+  'help.draft': {
+    en: "Prepared but not sent. Sending paces messages with a randomized gap and respects this number's rate caps, so a large campaign takes a while by design.",
+    ar: 'تم التجهيز دون إرسال. يتم الإرسال بفواصل زمنية عشوائية مع احترام حدود الرقم، لذا تستغرق الحملات الكبيرة وقتاً بشكل مقصود.',
+  },
+  'help.scheduleTimezone': {
+    en: "Uses this device's time zone. The recipient list is already fixed, so scheduling sends to exactly the people listed below.",
+    ar: 'يستخدم توقيت هذا الجهاز. قائمة المستلمين ثابتة بالفعل، لذا ستُرسل الجدولة إلى الأشخاص المذكورين أدناه بالضبط.',
+  },
+  'help.awaitingReceipts': {
+    en: 'No delivery receipts have arrived yet, so delivered and read are shown as “—” rather than 0% — the messages may well have arrived.',
+    ar: 'لم تصل إشعارات التسليم بعد، لذا يظهر التسليم والقراءة كـ«—» بدلاً من ٪٠ — قد تكون الرسائل وصلت بالفعل.',
+  },
+
   // --- activity -------------------------------------------------------------
   'activity.title': { en: 'Activity', ar: 'سجل النشاط' },
   'activity.when': { en: 'When', ar: 'الوقت' },

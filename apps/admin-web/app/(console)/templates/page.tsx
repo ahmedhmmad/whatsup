@@ -94,7 +94,7 @@ export default function TemplatesPage() {
   }
 
   async function remove(template: Template) {
-    if (!confirm(`Delete the “${template.name}” template?`)) return;
+    if (!confirm(t('confirm.deleteTemplate', { name: template.name }))) return;
     setError(null);
     try {
       await api(`/api/v1/templates/${template.id}`, { method: 'DELETE' });
@@ -116,8 +116,7 @@ export default function TemplatesPage() {
       <div>
         <h1 className="text-xl font-semibold">{t('templates.title')}</h1>
         <p className="text-sm text-slate-500">
-          A template wraps the message an admin types — the greeting, the{' '}
-          {labels.contact.toLowerCase()}&apos;s name, and which number it goes to.
+          {t('help.templates', { label: labels.contact })}
         </p>
       </div>
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { OrgTypeConfig } from '@sendwhats/shared';
 import { api } from '@/lib/api';
+import { useLocale } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 interface OrgRow {
@@ -19,6 +20,7 @@ interface OrgRow {
 
 export default function OrganizationsPage() {
   const { user, selectOrganization } = useSession();
+  const { t, word, formatDate } = useLocale();
   const router = useRouter();
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [orgTypes, setOrgTypes] = useState<OrgTypeConfig[]>([]);
@@ -46,7 +48,7 @@ export default function OrganizationsPage() {
   }, [user?.role, load]);
 
   if (user?.role !== 'super_admin') {
-    return <p className="text-sm text-slate-500">Super admin access required.</p>;
+    return <p className="text-sm text-slate-500">{t('orgs.superAdminOnly')}</p>;
   }
 
   async function create(e: React.FormEvent) {
@@ -92,13 +94,13 @@ export default function OrganizationsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Organizations</h1>
+      <h1 className="text-xl font-semibold">{t('orgs.title')}</h1>
 
       <form onSubmit={create} className="card space-y-4 p-4">
-        <h2 className="font-medium">Onboard an organization</h2>
+        <h2 className="font-medium">{t('orgs.onboard')}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <label className="label">Name</label>
+            <label className="label">{t('common.name')}</label>
             <input
               className="input"
               value={form.name}
@@ -107,7 +109,7 @@ export default function OrganizationsPage() {
             />
           </div>
           <div>
-            <label className="label">Type</label>
+            <label className="label">{t('orgs.type')}</label>
             <select
               className="input"
               value={form.type}
@@ -121,7 +123,7 @@ export default function OrganizationsPage() {
             </select>
           </div>
           <div>
-            <label className="label">Country dialling code</label>
+            <label className="label">{t('orgs.countryCode')}</label>
             <input
               className="input"
               value={form.countryCode}
@@ -130,7 +132,7 @@ export default function OrganizationsPage() {
             />
           </div>
           <div>
-            <label className="label">Owner email</label>
+            <label className="label">{t('orgs.ownerEmail')}</label>
             <input
               className="input"
               type="email"
@@ -140,7 +142,7 @@ export default function OrganizationsPage() {
             />
           </div>
           <div>
-            <label className="label">Owner password</label>
+            <label className="label">{t('orgs.ownerPassword')}</label>
             <input
               className="input"
               type="text"
@@ -165,7 +167,7 @@ export default function OrganizationsPage() {
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
         <button className="btn-primary" disabled={busy}>
-          {busy ? 'Creating…' : 'Create organization'}
+          {busy ? t('orgs.creating') : t('orgs.create')}
         </button>
       </form>
 
@@ -173,13 +175,13 @@ export default function OrganizationsPage() {
         <table className="w-full">
           <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="table-cell">Name</th>
-              <th className="table-cell">Type</th>
-              <th className="table-cell">Users</th>
-              <th className="table-cell">Groups</th>
-              <th className="table-cell">Contacts</th>
-              <th className="table-cell">WhatsApp</th>
-              <th className="table-cell">Status</th>
+              <th className="table-cell">{t('common.name')}</th>
+              <th className="table-cell">{t('orgs.type')}</th>
+              <th className="table-cell">{t('orgs.users')}</th>
+              <th className="table-cell">{t('orgs.groups')}</th>
+              <th className="table-cell">{t('orgs.contacts')}</th>
+              <th className="table-cell">{t('nav.whatsapp')}</th>
+              <th className="table-cell">{t('common.status')}</th>
               <th className="table-cell" />
             </tr>
           </thead>
@@ -192,22 +194,22 @@ export default function OrganizationsPage() {
                 <td className="table-cell">{org._count.groups}</td>
                 <td className="table-cell">{org._count.contacts}</td>
                 <td className="table-cell text-slate-500">
-                  {org.instance ? org.instance.status.replace(/_/g, ' ') : '—'}
+                  {org.instance ? word(org.instance.status) : '—'}
                 </td>
                 <td className="table-cell">
                   <span
                     className={`badge ${org.isActive ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500'}`}
                   >
-                    {org.isActive ? 'active' : 'suspended'}
+                    {org.isActive ? t('common.active') : t('orgs.suspended')}
                   </span>
                 </td>
                 <td className="table-cell">
                   <div className="flex justify-end gap-2">
                     <button className="btn-secondary" onClick={() => open(org)}>
-                      Open
+                      {t('common.open')}
                     </button>
                     <button className="btn-secondary" onClick={() => toggleActive(org)}>
-                      {org.isActive ? 'Suspend' : 'Activate'}
+                      {org.isActive ? t('orgs.suspend') : t('orgs.activate')}
                     </button>
                   </div>
                 </td>
@@ -216,7 +218,7 @@ export default function OrganizationsPage() {
             {!orgs.length && (
               <tr>
                 <td className="table-cell text-slate-500" colSpan={8}>
-                  No organizations yet.
+                  {t('orgs.empty')}
                 </td>
               </tr>
             )}

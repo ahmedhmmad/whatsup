@@ -123,7 +123,7 @@ export default function WhatsAppPage() {
 
   const logout = () =>
     run('logout', async () => {
-      if (!confirm('Disconnect this WhatsApp number? Campaigns cannot send until it is reconnected.')) return;
+      if (!confirm(t('confirm.logout'))) return;
       await api('/api/v1/instance/logout', { method: 'POST' });
       setQr(null);
       await load();
@@ -131,7 +131,7 @@ export default function WhatsAppPage() {
 
   const replaceNumber = () =>
     run('replace', async () => {
-      if (!confirm('Disconnect the current number and show a QR for a new one?')) return;
+      if (!confirm(t('confirm.replaceNumber'))) return;
       const payload = await api<ConnectPayload>('/api/v1/instance/replace-number', { method: 'POST' });
       setQr(payload);
       await load();
@@ -154,8 +154,7 @@ export default function WhatsAppPage() {
       <div>
         <h1 className="text-xl font-semibold">{t('whatsapp.title')}</h1>
         <p className="text-sm text-slate-500">
-          Link the number this {labels.organization.toLowerCase()} sends from. Scanning is a one-time
-          step — the connection stays live until the number is logged out or replaced.
+          {t('help.whatsapp', { label: labels.organization })}
         </p>
       </div>
 
@@ -298,8 +297,7 @@ function SendLimits({
       <div>
         <h2 className="font-medium">{t('whatsapp.limits')}</h2>
         <p className="text-sm text-slate-500">
-          Caps for this number. Leave empty to use the platform defaults. Lower is safer — WhatsApp
-          flags numbers that send in bursts.
+          {t('help.limits')}
         </p>
       </div>
 

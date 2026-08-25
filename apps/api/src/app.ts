@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth';
 import { campaignsRouter } from './routes/campaigns';
 import { contactsRouter } from './routes/contacts';
 import { groupsRouter } from './routes/groups';
+import { resolveLocale } from './middleware/locale';
 import { healthRouter } from './routes/health';
 import { importsRouter } from './routes/imports';
 import { instanceRouter } from './routes/instance';
@@ -31,6 +32,8 @@ export function createApp() {
     }),
   );
   app.use(express.json({ limit: '2mb' }));
+  // Ahead of every route so handlers and the error boundary share one locale.
+  app.use(resolveLocale);
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/health' } }));
 
   app.use(healthRouter);

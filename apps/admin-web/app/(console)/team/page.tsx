@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface OrgUser {
@@ -19,7 +19,7 @@ const BLANK = { email: '', password: '', name: '', role: 'staff' as 'owner' | 's
 export default function TeamPage() {
   const { user, organization } = useSession();
   const labels = useLabels();
-  const t = useT();
+  const { t, word } = useLocale();
   const isOwner = user?.role === 'owner' || user?.role === 'super_admin';
 
   const [users, setUsers] = useState<OrgUser[]>([]);
@@ -62,7 +62,7 @@ export default function TeamPage() {
   }
 
   async function remove(target: OrgUser) {
-    if (!confirm(`Remove ${target.email}? They lose access immediately.`)) return;
+    if (!confirm(t('confirm.removeUser', { email: target.email }))) return;
     setError(null);
     try {
       await api(`/api/v1/org/users/${target.id}`, { method: 'DELETE' });
@@ -73,7 +73,7 @@ export default function TeamPage() {
   }
 
   async function resetPassword(target: OrgUser) {
-    const password = prompt(`New password for ${target.email} (at least 8 characters)`);
+    const password = prompt(t('confirm.newPassword', { email: target.email }));
     if (!password) return;
     await update(target, { password });
   }
@@ -83,7 +83,7 @@ export default function TeamPage() {
       <div>
         <h1 className="text-xl font-semibold">{t('team.title')}</h1>
         <p className="text-sm text-slate-500">
-          Who can sign in to this {labels.organization.toLowerCase()}.{' '}
+          {t('help.team', { label: labels.organization })}
           <strong>Staff</strong> manage {labels.contactPlural.toLowerCase()}, imports and campaigns.{' '}
           <strong>Owners</strong> can also manage the team, the WhatsApp connection and the sending
           limits.
@@ -165,7 +165,7 @@ export default function TeamPage() {
                       row.role === 'owner' ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-600'
                     }`}
                   >
-                    {row.role}
+                    {word(row.role)}
                   </span>
                   {!row.isActive && <span className="ms-2 badge bg-slate-100 text-slate-500">{t('team.disabled')}</span>}
                 </td>

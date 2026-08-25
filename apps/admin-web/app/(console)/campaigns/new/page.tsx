@@ -142,7 +142,7 @@ export default function NewCampaignPage() {
       <div>
         <h1 className="text-xl font-semibold">{t('campaigns.new')}</h1>
         <p className="text-sm text-slate-500">
-          Choose who receives it, write the message, review exactly what will be sent.
+          {t('help.composer')}
         </p>
       </div>
 
