@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useLabels } from '@/lib/session';
 
 interface CampaignDetail {
@@ -65,6 +66,7 @@ export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const labels = useLabels();
+  const t = useT();
 
   const [data, setData] = useState<CampaignDetail | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -168,7 +170,7 @@ export default function CampaignDetailPage() {
           <Link href="/campaigns" className="text-sm text-slate-500 hover:underline">
             ← Campaigns
           </Link>
-          <h1 className="mt-1 text-xl font-semibold">{campaign.name ?? 'Untitled campaign'}</h1>
+          <h1 className="mt-1 text-xl font-semibold">{campaign.name ?? t('campaigns.untitled')}</h1>
           <p className="text-sm text-slate-500">
             {campaign.totalRecipients} recipients ·{' '}
             {campaign.template ? `${campaign.template.name} template` : 'no template'} ·{' '}
@@ -181,27 +183,27 @@ export default function CampaignDetailPage() {
 
           {status === 'draft' && (
             <button className="btn-primary" onClick={() => act('send')} disabled={busy !== null}>
-              {busy === 'send' ? 'Queueing…' : 'Send now'}
+              {busy === 'send' ? t('campaigns.queueing') : t('campaigns.sendNow')}
             </button>
           )}
           {status === 'scheduled' && (
             <button className="btn-secondary" onClick={() => act('unschedule')} disabled={busy !== null}>
-              {busy === 'unschedule' ? 'Cancelling…' : 'Cancel schedule'}
+              {busy === 'unschedule' ? t('import.working') : t('campaigns.cancelSchedule')}
             </button>
           )}
           {LIVE_STATUSES.includes(status) && (
             <button className="btn-secondary" onClick={() => act('pause')} disabled={busy !== null}>
-              {busy === 'pause' ? 'Pausing…' : 'Pause'}
+              {busy === 'pause' ? t('import.working') : t('campaigns.pause')}
             </button>
           )}
           {status === 'paused' && (
             <button className="btn-primary" onClick={() => act('resume')} disabled={busy !== null}>
-              {busy === 'resume' ? 'Resuming…' : 'Resume'}
+              {busy === 'resume' ? t('import.working') : t('campaigns.resume')}
             </button>
           )}
           {['queued', 'running', 'paused', 'scheduled'].includes(status) && (
             <button className="btn-danger" onClick={() => act('cancel')} disabled={busy !== null}>
-              {busy === 'cancel' ? 'Cancelling…' : 'Cancel'}
+              {busy === 'cancel' ? t('import.working') : t('campaigns.cancel')}
             </button>
           )}
           {['draft', 'completed', 'cancelled', 'failed'].includes(status) && (
@@ -281,7 +283,7 @@ export default function CampaignDetailPage() {
       </div>
 
       <div className="card space-y-3 p-4">
-        <h2 className="font-medium">Message</h2>
+        <h2 className="font-medium">{t('common.message')}</h2>
         <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm">{campaign.messageText}</pre>
         {campaign.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -296,13 +298,13 @@ export default function CampaignDetailPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="table-cell">{labels.contact}</th>
-              <th className="table-cell">Number</th>
-              <th className="table-cell">Status</th>
+              <th className="table-cell">{t('common.phone')}</th>
+              <th className="table-cell">{t('common.status')}</th>
               <th className="table-cell">Sent</th>
-              <th className="table-cell">Message</th>
+              <th className="table-cell">{t('common.message')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -315,7 +317,7 @@ export default function CampaignDetailPage() {
                     {job.status}
                   </span>
                   {job.attempts > 1 && (
-                    <span className="ml-1 text-xs text-slate-400">×{job.attempts}</span>
+                    <span className="ms-1 text-xs text-slate-400">×{job.attempts}</span>
                   )}
                   {job.error && <p className="mt-1 text-xs text-red-600">{job.error}</p>}
                 </td>
@@ -358,6 +360,7 @@ function ScheduleForm({
   busy: boolean;
   onSchedule: (iso: string) => void;
 }) {
+  const t = useT();
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -389,7 +392,7 @@ function ScheduleForm({
     <form onSubmit={submit} className="card flex flex-wrap items-end gap-3 p-4">
       <div className="min-w-[220px]">
         <label className="label" htmlFor="scheduledAt">
-          Or send later
+          {t('campaigns.sendLater')}
         </label>
         <input
           id="scheduledAt"
@@ -400,7 +403,7 @@ function ScheduleForm({
         />
       </div>
       <button className="btn-secondary" disabled={busy}>
-        {busy ? 'Working…' : 'Schedule'}
+        {busy ? t('import.working') : t('campaigns.schedule')}
       </button>
       <p className="w-full text-xs text-slate-400">
         Uses this device&apos;s time zone. The recipient list is already fixed, so

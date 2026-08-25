@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface Template {
@@ -23,6 +24,7 @@ const BLANK = { name: '', body: '', mergeTarget: 'contact', isDefault: false };
 export default function TemplatesPage() {
   const { organization } = useSession();
   const labels = useLabels();
+  const t = useT();
 
   const [data, setData] = useState<TemplatesResponse | null>(null);
   const [editing, setEditing] = useState<Template | null>(null);
@@ -112,7 +114,7 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Message templates</h1>
+        <h1 className="text-xl font-semibold">{t('templates.title')}</h1>
         <p className="text-sm text-slate-500">
           A template wraps the message an admin types — the greeting, the{' '}
           {labels.contact.toLowerCase()}&apos;s name, and which number it goes to.
@@ -123,11 +125,11 @@ export default function TemplatesPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <form onSubmit={save} className="card space-y-4 p-4">
-          <h2 className="font-medium">{editing ? `Edit “${editing.name}”` : 'New template'}</h2>
+          <h2 className="font-medium">{editing ? t('templates.editTemplate', { name: editing.name }) : t('templates.newTemplate')}</h2>
 
           <div className="flex flex-wrap gap-3">
             <div className="min-w-[180px] flex-1">
-              <label className="label">Name</label>
+              <label className="label">{t('common.name')}</label>
               <input
                 className="input"
                 value={form.name}
@@ -136,7 +138,7 @@ export default function TemplatesPage() {
               />
             </div>
             <div className="min-w-[160px]">
-              <label className="label">Send to</label>
+              <label className="label">{t('templates.sendTo')}</label>
               <select
                 className="input"
                 value={form.mergeTarget}
@@ -152,7 +154,7 @@ export default function TemplatesPage() {
           </div>
 
           <div>
-            <label className="label">Body</label>
+            <label className="label">{t('templates.body')}</label>
             <textarea
               className="input min-h-[140px] font-mono text-sm"
               value={form.body}
@@ -185,25 +187,25 @@ export default function TemplatesPage() {
               checked={form.isDefault}
               onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
             />
-            Use this template by default for new campaigns
+            {t('templates.makeDefault')}
           </label>
 
           <div className="flex gap-2">
             <button className="btn-primary" disabled={busy}>
-              {busy ? 'Saving…' : editing ? 'Save changes' : 'Create template'}
+              {busy ? t('common.saving') : editing ? t('templates.saveChanges') : t('templates.create')}
             </button>
             {editing && (
               <button type="button" className="btn-secondary" onClick={reset}>
-                Cancel
+                {t('common.cancel')}
               </button>
             )}
           </div>
         </form>
 
         <div className="card space-y-3 p-4">
-          <h2 className="font-medium">Preview</h2>
+          <h2 className="font-medium">{t('campaigns.preview')}</h2>
           <div>
-            <label className="label">Sample campaign message</label>
+            <label className="label">{t('templates.sampleMessage')}</label>
             <input
               className="input"
               value={sampleMessage}
@@ -222,18 +224,18 @@ export default function TemplatesPage() {
               </p>
             </>
           ) : (
-            <p className="text-sm text-slate-500">Type a body to see it rendered.</p>
+            <p className="text-sm text-slate-500">{t('templates.typeBody')}</p>
           )}
         </div>
       </div>
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="table-cell">Name</th>
-              <th className="table-cell">Sends to</th>
-              <th className="table-cell">Body</th>
+              <th className="table-cell">{t('common.name')}</th>
+              <th className="table-cell">{t('campaigns.sendsTo')}</th>
+              <th className="table-cell">{t('templates.body')}</th>
               <th className="table-cell" />
             </tr>
           </thead>
@@ -243,7 +245,7 @@ export default function TemplatesPage() {
                 <td className="table-cell font-medium">
                   {template.name}
                   {template.isDefault && (
-                    <span className="ml-2 badge bg-brand-50 text-brand-700">default</span>
+                    <span className="ms-2 badge bg-brand-50 text-brand-700">default</span>
                   )}
                 </td>
                 <td className="table-cell text-slate-500">
@@ -254,11 +256,11 @@ export default function TemplatesPage() {
                 <td className="table-cell">
                   <div className="flex justify-end gap-2">
                     <button className="btn-secondary" onClick={() => startEdit(template)}>
-                      Edit
+                      {t('common.edit')}
                     </button>
                     {!template.isDefault && (
                       <button className="btn-danger" onClick={() => remove(template)}>
-                        Delete
+                        {t('common.delete')}
                       </button>
                     )}
                   </div>

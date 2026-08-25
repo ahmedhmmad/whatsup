@@ -95,6 +95,8 @@ export function orgContext(org: Organization) {
     type: org.type,
     countryCode: org.countryCode,
     labels: config.labels,
+    // Shipped alongside so the console can switch locale without another round trip.
+    labelsAr: config.labelsAr,
     customFields: config.customFields,
     defaultMergeTarget: config.defaultMergeTarget,
   };

@@ -15,6 +15,8 @@ export interface CustomFieldDef {
   /** Stored as this key inside Contact.custom_fields */
   key: string;
   label: string;
+  /** Arabic label; falls back to `label` when absent. */
+  labelAr?: string;
   type: CustomFieldType;
   required: boolean;
   /** For type === 'select' */
@@ -38,6 +40,8 @@ export interface OrgTypeConfig {
   type: OrgType;
   name: string;
   labels: OrgTypeLabels;
+  /** Arabic labels; the console picks these when the locale is Arabic. */
+  labelsAr?: OrgTypeLabels;
   customFields: CustomFieldDef[];
   /**
    * Which phone the messages go to by default:
@@ -58,10 +62,18 @@ export const SCHOOL_CONFIG: OrgTypeConfig = {
     contact: 'Student',
     contactPlural: 'Students',
   },
+  labelsAr: {
+    organization: 'المدرسة',
+    group: 'الفصل',
+    groupPlural: 'الفصول',
+    contact: 'الطالب',
+    contactPlural: 'الطلاب',
+  },
   customFields: [
     {
       key: 'guardian_phone',
       label: 'Guardian phone',
+      labelAr: 'رقم ولي الأمر',
       type: 'phone',
       required: true,
       isPhoneTarget: true,
@@ -70,6 +82,7 @@ export const SCHOOL_CONFIG: OrgTypeConfig = {
     {
       key: 'gender',
       label: 'Gender',
+      labelAr: 'النوع',
       type: 'select',
       required: true,
       filterable: true,
@@ -93,10 +106,18 @@ export const CLINIC_CONFIG: OrgTypeConfig = {
     contact: 'Patient',
     contactPlural: 'Patients',
   },
+  labelsAr: {
+    organization: 'العيادة',
+    group: 'القسم',
+    groupPlural: 'الأقسام',
+    contact: 'المريض',
+    contactPlural: 'المرضى',
+  },
   customFields: [
     {
       key: 'gender',
       label: 'Gender',
+      labelAr: 'النوع',
       type: 'select',
       required: false,
       filterable: true,
@@ -119,6 +140,13 @@ export const GENERIC_CONFIG: OrgTypeConfig = {
     groupPlural: 'Groups',
     contact: 'Contact',
     contactPlural: 'Contacts',
+  },
+  labelsAr: {
+    organization: 'المؤسسة',
+    group: 'المجموعة',
+    groupPlural: 'المجموعات',
+    contact: 'جهة الاتصال',
+    contactPlural: 'جهات الاتصال',
   },
   customFields: [],
   defaultMergeTarget: 'contact',
@@ -199,10 +227,24 @@ export function resolveOrgConfig(org: {
   return {
     ...base,
     labels: { ...base.labels, ...override.labels },
+    // A custom vertical that renames things has no built-in Arabic for the new
+    // names, so its overrides apply to both locales rather than leaving Arabic
+    // showing the old built-in words.
+    labelsAr: base.labelsAr ? { ...base.labelsAr, ...override.labels } : undefined,
     customFields: override.customFields ?? base.customFields,
     defaultMergeTarget: override.defaultMergeTarget ?? base.defaultMergeTarget,
     defaultTemplateBody: override.defaultTemplateBody ?? base.defaultTemplateBody,
   };
+}
+
+/** Labels for a locale, falling back to English when a translation is absent. */
+export function localizedLabels(config: OrgTypeConfig, locale: string): OrgTypeLabels {
+  return locale === 'ar' && config.labelsAr ? config.labelsAr : config.labels;
+}
+
+/** A custom field's label for a locale, falling back to English. */
+export function localizedFieldLabel(field: CustomFieldDef, locale: string): string {
+  return locale === 'ar' ? (field.labelAr ?? field.label) : field.label;
 }
 
 export function getCustomFieldDef(type: OrgTypeInput, key: string): CustomFieldDef | undefined {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getActiveOrgId, getToken } from '@/lib/api';
 import { TargetPicker, type TargetFilter } from '@/components/TargetPicker';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface PreviewResponse {
@@ -40,6 +41,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 export default function NewCampaignPage() {
   const { organization } = useSession();
   const labels = useLabels();
+  const t = useT();
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -138,14 +140,14 @@ export default function NewCampaignPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">New campaign</h1>
+        <h1 className="text-xl font-semibold">{t('campaigns.new')}</h1>
         <p className="text-sm text-slate-500">
           Choose who receives it, write the message, review exactly what will be sent.
         </p>
       </div>
 
       <ol className="flex gap-2 text-sm">
-        {['Target', 'Compose', 'Review'].map((label, index) => {
+        {[t('campaigns.step.target'), t('campaigns.step.compose'), t('campaigns.step.review')].map((label, index) => {
           const value = (index + 1) as 1 | 2 | 3;
           return (
             <li key={label}>
@@ -171,8 +173,8 @@ export default function NewCampaignPage() {
         <div>
           <p className="text-2xl font-semibold">
             {loadingPreview ? '…' : recipients}
-            <span className="ml-2 text-sm font-normal text-slate-500">
-              {recipients === 1 ? 'recipient' : 'recipients'}
+            <span className="ms-2 text-sm font-normal text-slate-500">
+              {recipients === 1 ? t('campaigns.recipientCountOne') : t('campaigns.recipientCount')}
             </span>
           </p>
           {preview && (
@@ -210,7 +212,7 @@ export default function NewCampaignPage() {
           <TargetPicker value={filter} onChange={setFilter} />
           <div className="flex justify-end">
             <button className="btn-primary" disabled={!canCompose} onClick={() => setStep(2)}>
-              Next: compose
+              {t('campaigns.nextCompose')}
             </button>
           </div>
         </>
@@ -221,7 +223,7 @@ export default function NewCampaignPage() {
           <div className="card space-y-4 p-4">
             <div className="flex flex-wrap items-end gap-3">
               <div className="min-w-[200px] flex-1">
-                <label className="label">Campaign name (optional)</label>
+                <label className="label">{t('campaigns.nameOptional')}</label>
                 <input
                   className="input"
                   value={name}
@@ -230,7 +232,7 @@ export default function NewCampaignPage() {
                 />
               </div>
               <div className="min-w-[180px]">
-                <label className="label">Template</label>
+                <label className="label">{t('campaigns.template')}</label>
                 <select
                   className="input"
                   value={templateId ?? ''}
@@ -247,7 +249,7 @@ export default function NewCampaignPage() {
             </div>
 
             <div>
-              <label className="label">Message</label>
+              <label className="label">{t('common.message')}</label>
               <textarea
                 className="input min-h-[140px]"
                 value={messageText}
@@ -261,7 +263,7 @@ export default function NewCampaignPage() {
             </div>
 
             <div>
-              <label className="label">Attachments</label>
+              <label className="label">{t('campaigns.attachments')}</label>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   ref={fileInput}
@@ -273,14 +275,14 @@ export default function NewCampaignPage() {
                   }}
                 />
                 <button type="button" className="btn-secondary" onClick={() => fileInput.current?.click()}>
-                  Add file
+                  {t('campaigns.addFile')}
                 </button>
                 {attachments.map((attachment) => (
                   <span key={attachment.url} className="badge bg-slate-100 text-slate-600">
                     {attachment.fileName}
                     <button
                       type="button"
-                      className="ml-2"
+                      className="ms-2"
                       onClick={() => setAttachments((c) => c.filter((a) => a.url !== attachment.url))}
                     >
                       ×
@@ -293,7 +295,7 @@ export default function NewCampaignPage() {
 
           {preview?.sample[0] && (
             <div className="card p-4">
-              <h2 className="font-medium">Preview</h2>
+              <h2 className="font-medium">{t('campaigns.preview')}</h2>
               <p className="text-xs text-slate-400">
                 As {preview.sample[0].fullName} would receive it, on +{preview.sample[0].phone}
               </p>
@@ -305,10 +307,10 @@ export default function NewCampaignPage() {
 
           <div className="flex justify-between">
             <button className="btn-secondary" onClick={() => setStep(1)}>
-              Back
+              {t('campaigns.back')}
             </button>
             <button className="btn-primary" disabled={!canReview} onClick={() => setStep(3)}>
-              Next: review
+              {t('campaigns.nextReview')}
             </button>
           </div>
         </>
@@ -317,7 +319,7 @@ export default function NewCampaignPage() {
       {step === 3 && preview && (
         <>
           <div className="card space-y-3 p-4">
-            <h2 className="font-medium">Review</h2>
+            <h2 className="font-medium">{t('campaigns.step.review')}</h2>
             <p className="text-sm text-slate-600">
               {recipients} {recipients === 1 ? 'message' : 'messages'} will be prepared
               {preview.template && <> using the “{preview.template.name}” template</>}.
@@ -326,12 +328,12 @@ export default function NewCampaignPage() {
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="table-cell">{labels.contact}</th>
                     <th className="table-cell">{labels.group}</th>
-                    <th className="table-cell">Sends to</th>
-                    <th className="table-cell">Message</th>
+                    <th className="table-cell">{t('campaigns.sendsTo')}</th>
+                    <th className="table-cell">{t('common.message')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -354,7 +356,7 @@ export default function NewCampaignPage() {
 
             {preview.skippedSample.length > 0 && (
               <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                <p className="font-medium">Excluded from this send</p>
+                <p className="font-medium">{t('campaigns.excludedFromSend')}</p>
                 <ul className="mt-1 space-y-0.5">
                   {preview.skippedSample.map((row) => (
                     <li key={row.contactId}>
@@ -368,14 +370,14 @@ export default function NewCampaignPage() {
 
           <div className="flex items-center justify-between">
             <button className="btn-secondary" onClick={() => setStep(2)}>
-              Back
+              {t('campaigns.back')}
             </button>
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-400">
                 Saving prepares the messages. Sending arrives with the queue in Phase 5.
               </span>
               <button className="btn-primary" onClick={saveDraft} disabled={saving}>
-                {saving ? 'Saving…' : 'Save campaign'}
+                {saving ? t('common.saving') : t('campaigns.saveCampaign')}
               </button>
             </div>
           </div>

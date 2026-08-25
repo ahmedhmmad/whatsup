@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { ContactForm, type ContactRecord } from '@/components/ContactForm';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface ContactRow extends ContactRecord {
@@ -14,6 +15,7 @@ const PAGE_SIZE = 25;
 export default function ContactsPage() {
   const { organization } = useSession();
   const labels = useLabels();
+  const t = useT();
   const customFields = useMemo(() => organization?.customFields ?? [], [organization]);
   const filterableFields = useMemo(() => customFields.filter((f) => f.filterable), [customFields]);
 
@@ -85,10 +87,10 @@ export default function ContactsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{labels.contactPlural}</h1>
-          <p className="text-sm text-slate-500">{total} total</p>
+          <p className="text-sm text-slate-500">{t('common.total', { count: total })}</p>
         </div>
         <button className="btn-primary" onClick={() => setEditing(null)}>
-          Add {labels.contact.toLowerCase()}
+          {t('contacts.addButton', { label: labels.contact })}
         </button>
       </div>
 
@@ -106,7 +108,7 @@ export default function ContactsPage() {
 
       <div className="card flex flex-wrap items-end gap-3 p-4">
         <div className="min-w-[180px] flex-1">
-          <label className="label">Search</label>
+          <label className="label">{t('common.search')}</label>
           <input
             className="input"
             value={search}
@@ -114,7 +116,7 @@ export default function ContactsPage() {
               setPage(1);
               setSearch(e.target.value);
             }}
-            placeholder="Name or phone"
+            placeholder={t('contacts.searchPlaceholder')}
           />
         </div>
         <div className="min-w-[160px]">
@@ -127,7 +129,7 @@ export default function ContactsPage() {
               setGroupId(e.target.value);
             }}
           >
-            <option value="">All {labels.groupPlural.toLowerCase()}</option>
+            <option value="">{t('contacts.allGroups', { label: labels.groupPlural })}</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -146,7 +148,7 @@ export default function ContactsPage() {
                 setCfFilters({ ...cfFilters, [field.key]: e.target.value });
               }}
             >
-              <option value="">Any</option>
+              <option value="">{t('common.any')}</option>
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -159,15 +161,15 @@ export default function ContactsPage() {
 
       {selected.size > 0 && (
         <div className="flex items-center gap-2 rounded-md bg-slate-100 px-3 py-2 text-sm">
-          <span>{selected.size} selected</span>
+          <span>{t('contacts.selected', { count: selected.size })}</span>
           <button className="btn-secondary" onClick={() => bulk('activate')}>
-            Activate
+            {t('contacts.activate')}
           </button>
           <button className="btn-secondary" onClick={() => bulk('deactivate')}>
-            Deactivate
+            {t('contacts.deactivate')}
           </button>
           <button className="btn-danger" onClick={() => bulk('delete')}>
-            Delete
+            {t('common.delete')}
           </button>
         </div>
       )}
@@ -176,19 +178,19 @@ export default function ContactsPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="table-cell w-8" />
-              <th className="table-cell">Name</th>
+              <th className="table-cell">{t('common.name')}</th>
               <th className="table-cell">{labels.group}</th>
-              <th className="table-cell">Phone</th>
+              <th className="table-cell">{t('common.phone')}</th>
               {customFields.map((f) => (
                 <th key={f.key} className="table-cell">
                   {f.label}
                 </th>
               ))}
-              <th className="table-cell">Status</th>
-              <th className="table-cell">Consent</th>
+              <th className="table-cell">{t('common.status')}</th>
+              <th className="table-cell">{t('contacts.consent')}</th>
               <th className="table-cell" />
             </tr>
           </thead>
@@ -229,9 +231,9 @@ export default function ContactsPage() {
                     </span>
                   )}
                 </td>
-                <td className="table-cell text-right">
+                <td className="table-cell text-end">
                   <button className="btn-secondary" onClick={() => setEditing(row)}>
-                    Edit
+                    {t('common.edit')}
                   </button>
                 </td>
               </tr>

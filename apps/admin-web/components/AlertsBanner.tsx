@@ -53,7 +53,7 @@ export function AlertsBanner() {
           <p>
             {alert.message}
             {alert.href && (
-              <Link href={alert.href} className="ml-2 underline">
+              <Link href={alert.href} className="ms-2 underline">
                 Open
               </Link>
             )}

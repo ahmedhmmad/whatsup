@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import type { TranslationKey } from '@sendwhats/shared';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 type InstanceStatus =
@@ -30,15 +32,6 @@ interface ConnectPayload {
   phoneNumber: string | null;
 }
 
-const STATUS_LABEL: Record<InstanceStatus, string> = {
-  not_provisioned: 'Not provisioned',
-  provisioned: 'Ready to connect',
-  connecting: 'Waiting for scan',
-  connected: 'Connected',
-  disconnected: 'Disconnected',
-  error: 'Error',
-};
-
 const STATUS_TONE: Record<InstanceStatus, string> = {
   not_provisioned: 'bg-slate-100 text-slate-600',
   provisioned: 'bg-slate-100 text-slate-600',
@@ -56,6 +49,7 @@ export default function WhatsAppPage() {
   // owner-only on the API too — this just keeps staff from being offered them.
   const isOwner = user?.role === 'owner' || user?.role === 'super_admin';
   const labels = useLabels();
+  const t = useT();
 
   const [instance, setInstance] = useState<InstanceState | null>(null);
   const [qr, setQr] = useState<ConnectPayload | null>(null);
@@ -158,7 +152,7 @@ export default function WhatsAppPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">WhatsApp connection</h1>
+        <h1 className="text-xl font-semibold">{t('whatsapp.title')}</h1>
         <p className="text-sm text-slate-500">
           Link the number this {labels.organization.toLowerCase()} sends from. Scanning is a one-time
           step — the connection stays live until the number is logged out or replaced.
@@ -169,7 +163,7 @@ export default function WhatsAppPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className={`badge ${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>
+              <span className={`badge ${STATUS_TONE[status]}`}>{t(`whatsapp.status.${status}` as TranslationKey)}</span>
               {instance.phoneNumber && (
                 <span className="text-sm font-medium">{formatPhone(instance.phoneNumber)}</span>
               )}
@@ -183,34 +177,34 @@ export default function WhatsAppPage() {
 
           <div className="flex flex-wrap gap-2">
             <button className="btn-secondary" onClick={refresh} disabled={busy !== null}>
-              {busy === 'refresh' ? 'Checking…' : 'Refresh status'}
+              {busy === 'refresh' ? t('whatsapp.checking') : t('whatsapp.refresh')}
             </button>
 
             {status === 'not_provisioned' && isOwner && (
               <button className="btn-primary" onClick={provision} disabled={busy !== null}>
-                {busy === 'provision' ? 'Provisioning…' : 'Provision instance'}
+                {busy === 'provision' ? t('import.working') : t('whatsapp.provision')}
               </button>
             )}
 
             {(status === 'provisioned' || status === 'disconnected' || status === 'error') && (
               <button className="btn-primary" onClick={connect} disabled={busy !== null}>
-                {busy === 'connect' ? 'Requesting QR…' : 'Connect WhatsApp'}
+                {busy === 'connect' ? t('whatsapp.requestingQr') : t('whatsapp.connect')}
               </button>
             )}
 
             {status === 'connecting' && !qr && (
               <button className="btn-primary" onClick={connect} disabled={busy !== null}>
-                {busy === 'connect' ? 'Requesting QR…' : 'Show QR code'}
+                {busy === 'connect' ? t('whatsapp.requestingQr') : t('whatsapp.showQr')}
               </button>
             )}
 
             {status === 'connected' && isOwner && (
               <>
                 <button className="btn-secondary" onClick={replaceNumber} disabled={busy !== null}>
-                  {busy === 'replace' ? 'Working…' : 'Replace number'}
+                  {busy === 'replace' ? t('import.working') : t('whatsapp.replaceNumber')}
                 </button>
                 <button className="btn-danger" onClick={logout} disabled={busy !== null}>
-                  {busy === 'logout' ? 'Disconnecting…' : 'Log out'}
+                  {busy === 'logout' ? t('import.working') : t('whatsapp.logout')}
                 </button>
               </>
             )}
@@ -232,11 +226,11 @@ export default function WhatsAppPage() {
 
       {qr?.qrDataUrl && (
         <div className="card space-y-4 p-6 text-center">
-          <h2 className="font-medium">Scan with WhatsApp</h2>
-          <ol className="mx-auto max-w-md space-y-1 text-left text-sm text-slate-600">
-            <li>1. Open WhatsApp on the phone that owns the sending number.</li>
-            <li>2. Go to Settings → Linked devices → Link a device.</li>
-            <li>3. Point the camera at this code.</li>
+          <h2 className="font-medium">{t('whatsapp.scanTitle')}</h2>
+          <ol className="mx-auto max-w-md space-y-1 text-start text-sm text-slate-600">
+            <li>1. {t('whatsapp.scanStep1')}</li>
+            <li>2. {t('whatsapp.scanStep2')}</li>
+            <li>3. {t('whatsapp.scanStep3')}</li>
           </ol>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -271,6 +265,7 @@ function SendLimits({
   onSaved: (state: InstanceState) => void;
   canEdit: boolean;
 }) {
+  const t = useT();
   const [perMinute, setPerMinute] = useState(String(instance.maxPerMinute ?? ''));
   const [perDay, setPerDay] = useState(String(instance.maxPerDay ?? ''));
   const [busy, setBusy] = useState(false);
@@ -301,7 +296,7 @@ function SendLimits({
   return (
     <form onSubmit={save} className="card space-y-4 p-4">
       <div>
-        <h2 className="font-medium">Sending limits</h2>
+        <h2 className="font-medium">{t('whatsapp.limits')}</h2>
         <p className="text-sm text-slate-500">
           Caps for this number. Leave empty to use the platform defaults. Lower is safer — WhatsApp
           flags numbers that send in bursts.
@@ -310,7 +305,7 @@ function SendLimits({
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-40">
-          <label className="label">Messages per minute</label>
+          <label className="label">{t('whatsapp.perMinute')}</label>
           <input
             className="input"
             type="number"
@@ -323,7 +318,7 @@ function SendLimits({
           />
         </div>
         <div className="w-40">
-          <label className="label">Messages per day</label>
+          <label className="label">{t('whatsapp.perDay')}</label>
           <input
             className="input"
             type="number"
@@ -337,10 +332,10 @@ function SendLimits({
         </div>
         {canEdit ? (
           <button className="btn-secondary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save limits'}
+            {busy ? t('common.saving') : t('whatsapp.saveLimits')}
           </button>
         ) : (
-          <p className="pb-2 text-xs text-slate-400">Only an owner can change these.</p>
+          <p className="pb-2 text-xs text-slate-400">{t('whatsapp.ownerOnly')}</p>
         )}
       </div>
 

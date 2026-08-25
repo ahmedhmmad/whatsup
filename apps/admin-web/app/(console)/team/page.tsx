@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface OrgUser {
@@ -18,6 +19,7 @@ const BLANK = { email: '', password: '', name: '', role: 'staff' as 'owner' | 's
 export default function TeamPage() {
   const { user, organization } = useSession();
   const labels = useLabels();
+  const t = useT();
   const isOwner = user?.role === 'owner' || user?.role === 'super_admin';
 
   const [users, setUsers] = useState<OrgUser[]>([]);
@@ -79,7 +81,7 @@ export default function TeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Team</h1>
+        <h1 className="text-xl font-semibold">{t('team.title')}</h1>
         <p className="text-sm text-slate-500">
           Who can sign in to this {labels.organization.toLowerCase()}.{' '}
           <strong>Staff</strong> manage {labels.contactPlural.toLowerCase()}, imports and campaigns.{' '}
@@ -93,7 +95,7 @@ export default function TeamPage() {
       {isOwner && (
         <form onSubmit={add} className="card flex flex-wrap items-end gap-3 p-4">
           <div className="min-w-[200px] flex-1">
-            <label className="label">Email</label>
+            <label className="label">{t('common.email')}</label>
             <input
               className="input"
               type="email"
@@ -103,7 +105,7 @@ export default function TeamPage() {
             />
           </div>
           <div className="min-w-[150px]">
-            <label className="label">Name</label>
+            <label className="label">{t('common.name')}</label>
             <input
               className="input"
               value={form.name}
@@ -111,7 +113,7 @@ export default function TeamPage() {
             />
           </div>
           <div className="min-w-[160px]">
-            <label className="label">Temporary password</label>
+            <label className="label">{t('team.tempPassword')}</label>
             <input
               className="input"
               type="text"
@@ -122,30 +124,30 @@ export default function TeamPage() {
             />
           </div>
           <div className="min-w-[120px]">
-            <label className="label">Role</label>
+            <label className="label">{t('team.role')}</label>
             <select
               className="input"
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value as 'owner' | 'staff' })}
             >
-              <option value="staff">Staff</option>
-              <option value="owner">Owner</option>
+              <option value="staff">{t('team.staff')}</option>
+              <option value="owner">{t('team.owner')}</option>
             </select>
           </div>
           <button className="btn-primary" disabled={busy}>
-            {busy ? 'Adding…' : 'Add user'}
+            {busy ? t('team.adding') : t('team.addUser')}
           </button>
         </form>
       )}
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="table-cell">Name</th>
-              <th className="table-cell">Email</th>
-              <th className="table-cell">Role</th>
-              <th className="table-cell">Last signed in</th>
+              <th className="table-cell">{t('common.name')}</th>
+              <th className="table-cell">{t('common.email')}</th>
+              <th className="table-cell">{t('team.role')}</th>
+              <th className="table-cell">{t('team.lastSignedIn')}</th>
               {isOwner && <th className="table-cell" />}
             </tr>
           </thead>
@@ -154,7 +156,7 @@ export default function TeamPage() {
               <tr key={row.id} className={row.isActive ? undefined : 'opacity-60'}>
                 <td className="table-cell font-medium">
                   {row.name ?? '—'}
-                  {row.id === user?.id && <span className="ml-2 text-xs text-slate-400">you</span>}
+                  {row.id === user?.id && <span className="ms-2 text-xs text-slate-400">{t('team.you')}</span>}
                 </td>
                 <td className="table-cell text-slate-500">{row.email}</td>
                 <td className="table-cell">
@@ -165,10 +167,10 @@ export default function TeamPage() {
                   >
                     {row.role}
                   </span>
-                  {!row.isActive && <span className="ml-2 badge bg-slate-100 text-slate-500">disabled</span>}
+                  {!row.isActive && <span className="ms-2 badge bg-slate-100 text-slate-500">{t('team.disabled')}</span>}
                 </td>
                 <td className="table-cell text-slate-500">
-                  {row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleString() : 'never'}
+                  {row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleString() : t('common.never')}
                 </td>
                 {isOwner && (
                   <td className="table-cell">
@@ -177,20 +179,20 @@ export default function TeamPage() {
                         className="btn-secondary"
                         onClick={() => update(row, { role: row.role === 'owner' ? 'staff' : 'owner' })}
                       >
-                        Make {row.role === 'owner' ? 'staff' : 'owner'}
+                        {row.role === 'owner' ? t('team.makeStaff') : t('team.makeOwner')}
                       </button>
                       <button className="btn-secondary" onClick={() => resetPassword(row)}>
-                        Reset password
+                        {t('team.resetPassword')}
                       </button>
                       <button
                         className="btn-secondary"
                         onClick={() => update(row, { isActive: !row.isActive })}
                       >
-                        {row.isActive ? 'Disable' : 'Enable'}
+                        {row.isActive ? t('team.disable') : t('team.enable')}
                       </button>
                       {row.id !== user?.id && (
                         <button className="btn-danger" onClick={() => remove(row)}>
-                          Remove
+                          {t('team.remove')}
                         </button>
                       )}
                     </div>
@@ -211,7 +213,7 @@ export default function TeamPage() {
 
       {!isOwner && (
         <p className="text-sm text-slate-500">
-          You are signed in as staff, so this list is read-only.
+          {t('team.readOnly')}
         </p>
       )}
     </div>

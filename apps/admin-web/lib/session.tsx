@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CustomFieldDef, OrgTypeLabels, UserRole } from '@sendwhats/shared';
+import { localizedFieldLabel, localizedLabels } from '@sendwhats/shared';
+import { useLocale } from './i18n';
 import { api, getToken, setActiveOrgId, setToken } from './api';
 
 export interface SessionUser {
@@ -19,6 +21,7 @@ export interface SessionOrg {
   type: string;
   countryCode: string;
   labels: OrgTypeLabels;
+  labelsAr?: OrgTypeLabels;
   customFields: CustomFieldDef[];
   defaultMergeTarget: string;
 }
@@ -118,7 +121,22 @@ export function useSession() {
   return ctx;
 }
 
-/** Org-type aware labels, so the same screens read "Classes"/"Students" for a school. */
+/**
+ * Org-type aware labels, so the same screens read "Classes"/"Students" for a school
+ * — and "الفصول"/"الطلاب" when the console is in Arabic.
+ */
 export function useLabels(): OrgTypeLabels {
-  return useSession().organization?.labels ?? GENERIC_LABELS;
+  const { organization } = useSession();
+  const { locale } = useLocale();
+  if (!organization) return GENERIC_LABELS;
+  return localizedLabels(
+    { labels: organization.labels, labelsAr: organization.labelsAr } as never,
+    locale,
+  );
+}
+
+/** A custom field's label in the active locale. */
+export function useFieldLabel() {
+  const { locale } = useLocale();
+  return (field: CustomFieldDef) => localizedFieldLabel(field, locale);
 }

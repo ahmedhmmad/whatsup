@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 interface AuditRow {
@@ -39,6 +40,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 export default function AuditPage() {
   const { organization } = useSession();
+  const t = useT();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -95,12 +97,12 @@ export default function AuditPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="table-cell">When</th>
-              <th className="table-cell">Who</th>
-              <th className="table-cell">What</th>
-              <th className="table-cell">Details</th>
+              <th className="table-cell">{t('activity.when')}</th>
+              <th className="table-cell">{t('activity.who')}</th>
+              <th className="table-cell">{t('activity.what')}</th>
+              <th className="table-cell">{t('activity.details')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

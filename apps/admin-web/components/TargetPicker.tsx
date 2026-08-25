@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 export interface TargetFilter {
@@ -29,6 +30,7 @@ interface ContactRow {
 export function TargetPicker({ value, onChange }: Props) {
   const { organization } = useSession();
   const labels = useLabels();
+  const t = useT();
   const filterableFields = (organization?.customFields ?? []).filter((f) => f.filterable);
 
   const [groups, setGroups] = useState<{ id: string; name: string; contactCount: number }[]>([]);
@@ -87,14 +89,14 @@ export function TargetPicker({ value, onChange }: Props) {
 
   return (
     <div className="card space-y-4 p-4">
-      <h2 className="font-medium">Who receives this?</h2>
+      <h2 className="font-medium">{t('campaigns.whoReceives')}</h2>
 
       <div className="flex flex-wrap gap-2">
         {(
           [
-            ['all', `Whole ${labels.organization.toLowerCase()}`],
-            ['groups', `Selected ${labels.groupPlural.toLowerCase()}`],
-            ['manual', `Hand-picked ${labels.contactPlural.toLowerCase()}`],
+            ['all', t('campaigns.wholeOrg', { label: labels.organization })],
+            ['groups', t('campaigns.selectedGroups', { label: labels.groupPlural })],
+            ['manual', t('campaigns.handPicked', { label: labels.contactPlural })],
           ] as const
         ).map(([mode, label]) => (
           <button
@@ -153,7 +155,7 @@ export function TargetPicker({ value, onChange }: Props) {
               {picked.map((contact) => (
                 <span key={contact.id} className="badge bg-brand-50 text-brand-700">
                   {contact.fullName}
-                  <button type="button" className="ml-2 text-brand-700" onClick={() => removeContact(contact.id)}>
+                  <button type="button" className="ms-2 text-brand-700" onClick={() => removeContact(contact.id)}>
                     ×
                   </button>
                 </span>
@@ -166,7 +168,7 @@ export function TargetPicker({ value, onChange }: Props) {
               <li key={contact.id} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span>
                   {contact.fullName}
-                  {contact.group && <span className="ml-2 text-slate-400">{contact.group.name}</span>}
+                  {contact.group && <span className="ms-2 text-slate-400">{contact.group.name}</span>}
                 </span>
                 <button type="button" className="btn-secondary" onClick={() => addContact(contact)}>
                   Add
@@ -188,7 +190,7 @@ export function TargetPicker({ value, onChange }: Props) {
                 value={value.customFieldFilters?.[field.key]?.[0] ?? ''}
                 onChange={(e) => setFieldFilter(field.key, e.target.value)}
               >
-                <option value="">Any</option>
+                <option value="">{t('common.any')}</option>
                 {field.options?.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}

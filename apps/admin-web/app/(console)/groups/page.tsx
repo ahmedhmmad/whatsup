@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useLabels } from '@/lib/session';
 
 interface Group {
@@ -13,6 +14,7 @@ interface Group {
 
 export default function GroupsPage() {
   const labels = useLabels();
+  const t = useT();
   const [groups, setGroups] = useState<Group[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -74,7 +76,7 @@ export default function GroupsPage() {
         </div>
         <div className="min-w-[200px] flex-1">
           <label className="label" htmlFor="description">
-            Description
+            {t('common.description')}
           </label>
           <input
             id="description"
@@ -84,7 +86,7 @@ export default function GroupsPage() {
           />
         </div>
         <button className="btn-primary" disabled={busy}>
-          Add {labels.group.toLowerCase()}
+          {t('groups.addButton', { label: labels.group })}
         </button>
       </form>
 
@@ -92,10 +94,10 @@ export default function GroupsPage() {
 
       <div className="card overflow-hidden">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="table-cell">Name</th>
-              <th className="table-cell">Description</th>
+              <th className="table-cell">{t('common.name')}</th>
+              <th className="table-cell">{t('common.description')}</th>
               <th className="table-cell">{labels.contactPlural}</th>
               <th className="table-cell" />
             </tr>
@@ -106,9 +108,9 @@ export default function GroupsPage() {
                 <td className="table-cell font-medium">{group.name}</td>
                 <td className="table-cell text-slate-500">{group.description ?? '—'}</td>
                 <td className="table-cell">{group.contactCount}</td>
-                <td className="table-cell text-right">
+                <td className="table-cell text-end">
                   <button className="btn-danger" onClick={() => remove(group)}>
-                    Delete
+                    {t('common.delete')}
                   </button>
                 </td>
               </tr>
@@ -116,7 +118,7 @@ export default function GroupsPage() {
             {!groups.length && (
               <tr>
                 <td className="table-cell text-slate-500" colSpan={4}>
-                  No {labels.groupPlural.toLowerCase()} yet.
+                  {t('groups.empty', { label: labels.groupPlural })}
                 </td>
               </tr>
             )}

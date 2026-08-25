@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 interface Analytics {
@@ -40,6 +41,7 @@ const RANGES = [7, 30, 90];
 
 export default function AnalyticsPage() {
   const { organization } = useSession();
+  const t = useT();
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Analytics | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,18 +68,18 @@ export default function AnalyticsPage() {
   const peakSent = byHour.reduce((max, row) => Math.max(max, row.sent), 0);
 
   const tiles = [
-    { label: 'Campaigns', value: summary.campaigns },
-    { label: 'Messages', value: summary.messages },
-    { label: 'Reached WhatsApp', value: summary.sent },
-    { label: 'Failed', value: summary.failed },
+    { label: t('analytics.campaigns'), value: summary.campaigns },
+    { label: t('analytics.messages'), value: summary.messages },
+    { label: t('analytics.reached'), value: summary.sent },
+    { label: t('analytics.failed'), value: summary.failed },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Analytics</h1>
-          <p className="text-sm text-slate-500">Sending performance over the last {days} days.</p>
+          <h1 className="text-xl font-semibold">{t('analytics.title')}</h1>
+          <p className="text-sm text-slate-500">{t('analytics.subtitle', { days })}</p>
         </div>
         <div className="flex gap-1">
           {RANGES.map((range) => (
@@ -143,11 +145,11 @@ export default function AnalyticsPage() {
       )}
 
       <div className="card p-4">
-        <h2 className="font-medium">When messages go out</h2>
+        <h2 className="font-medium">{t('analytics.whenSent')}</h2>
         <p className="text-xs text-slate-400">
           {busiestHour
             ? `Busiest hour: ${String(busiestHour.hour).padStart(2, '0')}:00 (${busiestHour.sent} messages)`
-            : 'Nothing sent in this period yet.'}
+            : t('analytics.nothingSent')}
         </p>
         {byHour.length > 0 && (
           <div className="mt-4 flex items-end gap-1" style={{ height: 120 }}>
@@ -176,7 +178,7 @@ export default function AnalyticsPage() {
 
       {topFailures.length > 0 && (
         <div className="card p-4">
-          <h2 className="font-medium">Most common failures</h2>
+          <h2 className="font-medium">{t('analytics.topFailures')}</h2>
           <ul className="mt-2 space-y-1 text-sm">
             {topFailures.map((row) => (
               <li key={row.error} className="flex justify-between gap-4">
@@ -190,7 +192,7 @@ export default function AnalyticsPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="table-cell">Campaign</th>
               <th className="table-cell">Recipients</th>
@@ -207,13 +209,13 @@ export default function AnalyticsPage() {
                   <Link href={`/campaigns/${campaign.id}`} className="font-medium hover:underline">
                     {campaign.name ?? 'Untitled campaign'}
                   </Link>
-                  <span className="ml-2 badge bg-slate-100 text-slate-500">{campaign.status}</span>
+                  <span className="ms-2 badge bg-slate-100 text-slate-500">{campaign.status}</span>
                 </td>
                 <td className="table-cell">{campaign.totalRecipients}</td>
                 <td className="table-cell">
                   {campaign.sentCount}
                   {campaign.successRate !== null && (
-                    <span className="ml-1 text-xs text-slate-400">{campaign.successRate}%</span>
+                    <span className="ms-1 text-xs text-slate-400">{campaign.successRate}%</span>
                   )}
                 </td>
                 <td className="table-cell">
@@ -230,7 +232,7 @@ export default function AnalyticsPage() {
             {!data.campaigns.length && (
               <tr>
                 <td className="table-cell text-slate-500" colSpan={6}>
-                  No campaigns in this period.
+                  {t('analytics.noCampaigns')}
                 </td>
               </tr>
             )}

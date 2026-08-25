@@ -171,7 +171,7 @@ export default function OrganizationsPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="table-cell">Name</th>
               <th className="table-cell">Type</th>

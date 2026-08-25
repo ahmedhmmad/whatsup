@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveOrgId, getToken, api, ApiError } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useLabels, useSession } from '@/lib/session';
 
 interface ParsedRow {
@@ -44,6 +45,7 @@ const ACTION_TONE: Record<ParsedRow['action'], string> = {
 export default function ImportPage() {
   const { organization } = useSession();
   const labels = useLabels();
+  const t = useT();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
@@ -163,7 +165,7 @@ export default function ImportPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Import {labels.contactPlural.toLowerCase()}</h1>
+        <h1 className="text-xl font-semibold">{t('import.title', { label: labels.contactPlural })}</h1>
         <p className="text-sm text-slate-500">
           Download the template for this {labels.organization.toLowerCase()}, fill it in, and upload it.
           Nothing is saved until you confirm the preview.
@@ -189,13 +191,13 @@ export default function ImportPage() {
               checked={createMissingGroups}
               onChange={(e) => setCreateMissingGroups(e.target.checked)}
             />
-            Create missing {labels.groupPlural.toLowerCase()}
+            {t('import.createMissing', { label: labels.groupPlural })}
           </label>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <button className="btn-secondary" onClick={downloadTemplate}>
-            Download template
+            {t('import.downloadTemplate')}
           </button>
           <input
             ref={fileInput}
@@ -208,7 +210,7 @@ export default function ImportPage() {
             }}
           />
           <button className="btn-primary" disabled={busy} onClick={() => fileInput.current?.click()}>
-            {busy ? 'Working…' : 'Upload filled sheet'}
+            {busy ? t('import.working') : t('import.uploadSheet')}
           </button>
         </div>
       </div>
@@ -217,7 +219,7 @@ export default function ImportPage() {
 
       {result && (
         <div className="card space-y-1 p-4 text-sm">
-          <p className="font-medium text-brand-700">Import complete</p>
+          <p className="font-medium text-brand-700">{t('import.complete')}</p>
           <p className="text-slate-600">
             {String(result.created)} created · {String(result.updated)} updated ·{' '}
             {String(result.skipped)} skipped · {String(result.failed)} not imported
@@ -255,7 +257,7 @@ export default function ImportPage() {
             </div>
             <div className="flex gap-2">
               <button className="btn-secondary" onClick={cancel} disabled={busy}>
-                Discard
+                {t('import.discard')}
               </button>
               <button className="btn-primary" onClick={commit} disabled={busy || applicable === 0}>
                 Import {applicable} {applicable === 1 ? 'row' : 'rows'}
@@ -265,15 +267,15 @@ export default function ImportPage() {
 
           <div className="card overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="table-cell w-8" />
-                  <th className="table-cell">Row</th>
-                  <th className="table-cell">Action</th>
-                  <th className="table-cell">Name</th>
+                  <th className="table-cell">{t('import.row')}</th>
+                  <th className="table-cell">{t('import.action')}</th>
+                  <th className="table-cell">{t('common.name')}</th>
                   <th className="table-cell">{labels.group}</th>
-                  <th className="table-cell">Sends to</th>
-                  <th className="table-cell">Notes</th>
+                  <th className="table-cell">{t('campaigns.sendsTo')}</th>
+                  <th className="table-cell">{t('import.notes')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

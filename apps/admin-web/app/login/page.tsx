@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useT } from '@/lib/i18n';
+import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { useSession } from '@/lib/session';
 
 export default function LoginPage() {
   const { login } = useSession();
+  const t = useT();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +23,7 @@ export default function LoginPage() {
       const user = await login(email, password);
       router.push(user.role === 'super_admin' ? '/admin/organizations' : '/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setBusy(false);
     }
@@ -29,13 +32,16 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="card w-full max-w-sm p-6">
-        <h1 className="text-lg font-semibold">Sign in</h1>
-        <p className="mt-1 text-sm text-slate-500">SendWhats broadcast console</p>
+        <div className="mb-4 flex justify-end">
+          <LocaleSwitcher />
+        </div>
+        <h1 className="text-lg font-semibold">{t('login.title')}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t('login.subtitle')}</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
             <label className="label" htmlFor="email">
-              Email
+              {t('common.email')}
             </label>
             <input
               id="email"
@@ -49,7 +55,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="label" htmlFor="password">
-              Password
+              {t('common.password')}
             </label>
             <input
               id="password"
@@ -65,7 +71,7 @@ export default function LoginPage() {
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
           <button type="submit" className="btn-primary w-full" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in'}
+            {busy ? t('login.submitting') : t('login.submit')}
           </button>
         </form>
       </div>
